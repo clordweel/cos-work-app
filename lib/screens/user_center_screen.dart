@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../auth/cos_auth_service.dart';
+import '../auth/cos_company_context.dart';
 import '../routing/app_routes.dart';
 import '../routing/cos_navigation.dart';
 import '../routing/mini_program_registry.dart';
@@ -10,6 +11,71 @@ import '../wechat_ui/wechat_colors.dart';
 /// 原生用户中心：个人信息、Desk（Web 小程序）、切换账号（原生登出）。
 class UserCenterScreen extends StatelessWidget {
   const UserCenterScreen({super.key});
+
+  Future<void> _pickCompany(BuildContext context) async {
+    final ctx = CosCompanyContext.instance;
+    if (ctx.loading) return;
+    if (ctx.companies.isEmpty) {
+      await ctx.refreshFromServer();
+      if (!context.mounted) return;
+      if (ctx.companies.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ctx.errorMessage ?? '暂无可选账套，请确认站点已部署 cos.company_context_api'),
+          ),
+        );
+      }
+      return;
+    }
+    if (ctx.companies.length == 1) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('当前仅有一个可用账套')),
+        );
+      }
+      return;
+    }
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Text(
+                  '选择账套（公司）',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+              for (final row in ctx.companies)
+                ListTile(
+                  title: Text(row.displayLabel),
+                  subtitle: Text(row.name, style: const TextStyle(fontSize: 12)),
+                  trailing: row.name == ctx.activeName
+                      ? Icon(Icons.check_circle, color: WeChatMiniUiColors.brandGreen)
+                      : null,
+                  onTap: () => Navigator.pop(sheetCtx, row.name),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+    if (chosen == null || !context.mounted) return;
+    if (chosen == ctx.activeName) return;
+    final err = await ctx.setActiveCompany(chosen);
+    if (!context.mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已切换账套；小程序内请下拉刷新以同步数据')),
+      );
+    }
+  }
 
   Future<void> _confirmLogout(BuildContext context) async {
     final ok = await showDialog<bool>(
@@ -66,6 +132,29 @@ class UserCenterScreen extends StatelessWidget {
                 subtitle: _profileSubtitle(auth),
                 onTap: () =>
                     Navigator.of(context).pushNamed(AppRoutes.profileEdit),
+              ),
+              const SizedBox(height: 16),
+              _SectionTitle(title: '账套'),
+              ListenableBuilder(
+                listenable: CosCompanyContext.instance,
+                builder: (context, _) {
+                  final cc = CosCompanyContext.instance;
+                  final subtitle = cc.loading
+                      ? '同步中…'
+                      : cc.errorMessage != null
+                          ? cc.errorMessage!
+                          : (cc.activeDisplayLabel != null
+                              ? '当前：${cc.activeDisplayLabel}'
+                              : (cc.companies.isEmpty
+                                  ? '登录后自动加载'
+                                  : '未设置默认公司'));
+                  return _NativeTile(
+                    icon: Icons.apartment_outlined,
+                    title: '切换账套',
+                    subtitle: subtitle,
+                    onTap: cc.loading ? null : () => _pickCompany(context),
+                  );
+                },
               ),
               const SizedBox(height: 16),
               _SectionTitle(title: '账号'),

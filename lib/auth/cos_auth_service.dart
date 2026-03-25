@@ -9,14 +9,13 @@ import '../config/app_brand.dart';
 import '../config/cos_site_store.dart';
 import 'cos_web_cookie_sync.dart';
 import 'cos_biometric_gate.dart';
+import 'cos_session_storage_keys.dart';
 import 'frappe_native_session.dart';
+import 'cos_company_context.dart';
 
-const _kSecureSid = 'cos_frappe_sid';
 const _kSecureWorkerPortalToken = 'cos_worker_portal_wpt';
 const _kPrefsUserId = 'cos_frappe_user_id';
 const _kPrefsFullName = 'cos_frappe_full_name';
-/// 登录时 Frappe 返回的 Web Cookie 快照（JSON），用于冷启动与打开 WebView 前重灌。
-const _kPrefsFrappeWebCookiesJson = 'cos_frappe_web_cookies_json';
 const _kPrefsBiometricGateEnabled = 'cos_biometric_gate_enabled';
 
 /// 原生登录态：Frappe `/api/method/login` + sid 持久化 + WebView Cookie 同步。
@@ -62,7 +61,7 @@ class CosAuthService extends ChangeNotifier {
   Future<void> bootstrap() async {
     await CosSiteStore.instance.init();
     await _loadBiometricGatePref();
-    final sid = await _secure.read(key: _kSecureSid);
+    final sid = await _secure.read(key: CosSessionKeys.frappeSid);
     if (sid == null || sid.isEmpty) {
       await _loadProfilePrefs();
       await _refreshLocalProfileFields();
@@ -73,17 +72,22 @@ class CosAuthService extends ChangeNotifier {
       return;
     }
     final origin = CosSiteStore.instance.origin;
-    final ok = await FrappeNativeSession.verifySession(
+    final verify = await FrappeNativeSession.verifySessionDetailed(
       siteOrigin: origin,
       sidValue: sid,
     );
-    if (!ok) {
+    if (verify == FrappeSessionVerifyResult.unauthenticated) {
       await _clearSessionData(clearSecureSid: true);
       _loggedIn = false;
       _sessionBiometricUnlocked = true;
       _bootstrapDone = true;
       notifyListeners();
       return;
+    }
+    if (verify == FrappeSessionVerifyResult.inconclusive) {
+      debugPrint(
+        'bootstrap: 会话校验未连通服务器，保留本地 sid（避免误判为已登出）',
+      );
     }
     await _restoreWebCookiesAfterVerify(origin, sid);
     await _loadProfilePrefs();
@@ -93,6 +97,7 @@ class CosAuthService extends ChangeNotifier {
         !_biometricGateEnabled || !await CosBiometricGate.hasEnrolledBiometrics();
     _bootstrapDone = true;
     notifyListeners();
+    await CosCompanyContext.instance.refreshFromServer();
   }
 
   Future<String?> login({
@@ -110,7 +115,7 @@ class CosAuthService extends ChangeNotifier {
     }
     final sid = outcome.sidValue;
     if (sid == null) return '未获取到会话';
-    await _secure.write(key: _kSecureSid, value: sid);
+    await _secure.write(key: CosSessionKeys.frappeSid, value: sid);
     await _persistFrappeWebCookies(outcome.cookies);
     await CosWebCookieSync.applyCookies(origin, outcome.cookies);
     final wptOut = await FrappeNativeSession.loginForWorkerPortalToken(
@@ -135,6 +140,7 @@ class CosAuthService extends ChangeNotifier {
     _sessionBiometricUnlocked = true;
     _bootstrapDone = true;
     notifyListeners();
+    await CosCompanyContext.instance.refreshFromServer();
     return null;
   }
 
@@ -193,7 +199,7 @@ class CosAuthService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    final sid = await _secure.read(key: _kSecureSid);
+    final sid = await _secure.read(key: CosSessionKeys.frappeSid);
     final origin = CosSiteStore.instance.origin;
     if (sid != null && sid.isNotEmpty) {
       await FrappeNativeSession.logout(siteOrigin: origin, sidValue: sid);
@@ -214,13 +220,14 @@ class CosAuthService extends ChangeNotifier {
 
   Future<void> _clearSessionData({required bool clearSecureSid}) async {
     if (clearSecureSid) {
-      await _secure.delete(key: _kSecureSid);
+      CosCompanyContext.instance.clear();
+      await _secure.delete(key: CosSessionKeys.frappeSid);
       await _secure.delete(key: _kSecureWorkerPortalToken);
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kPrefsUserId);
     await prefs.remove(_kPrefsFullName);
-    await prefs.remove(_kPrefsFrappeWebCookiesJson);
+    await prefs.remove(CosSessionKeys.frappeWebCookiesJson);
     _userId = null;
     _fullName = null;
     _localDisplayName = null;
@@ -290,7 +297,7 @@ class CosAuthService extends ChangeNotifier {
     if (!_loggedIn) return;
     final origin = CosSiteStore.instance.origin;
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_kPrefsFrappeWebCookiesJson);
+    final raw = prefs.getString(CosSessionKeys.frappeWebCookiesJson);
     if (raw != null && raw.isNotEmpty) {
       try {
         final list = jsonDecode(raw) as List<dynamic>;
@@ -309,7 +316,7 @@ class CosAuthService extends ChangeNotifier {
         debugPrint('ensureWebViewCookies: 快照无效 $e\n$st');
       }
     }
-    final sid = await _secure.read(key: _kSecureSid);
+    final sid = await _secure.read(key: CosSessionKeys.frappeSid);
     if (sid != null && sid.isNotEmpty) {
       await CosWebCookieSync.applySidOnlyForBrowse(
         origin,
@@ -321,7 +328,7 @@ class CosAuthService extends ChangeNotifier {
 
   Future<void> _restoreWebCookiesAfterVerify(Uri origin, String sid) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_kPrefsFrappeWebCookiesJson);
+    final raw = prefs.getString(CosSessionKeys.frappeWebCookiesJson);
     if (raw != null && raw.isNotEmpty) {
       try {
         final list = jsonDecode(raw) as List<dynamic>;
@@ -334,7 +341,7 @@ class CosAuthService extends ChangeNotifier {
         }
       } catch (e, st) {
         debugPrint('restoreWebCookies: 快照无效 $e\n$st');
-        await prefs.remove(_kPrefsFrappeWebCookiesJson);
+        await prefs.remove(CosSessionKeys.frappeWebCookiesJson);
       }
     }
     await CosWebCookieSync.applySidOnly(origin, sid);
@@ -355,7 +362,7 @@ class CosAuthService extends ChangeNotifier {
           },
         )
         .toList();
-    await prefs.setString(_kPrefsFrappeWebCookiesJson, jsonEncode(list));
+    await prefs.setString(CosSessionKeys.frappeWebCookiesJson, jsonEncode(list));
   }
 
   Cookie _cookieFromJson(Map<String, dynamic> m) {

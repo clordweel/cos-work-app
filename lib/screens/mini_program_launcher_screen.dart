@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../auth/cos_company_context.dart';
 import '../config/app_brand.dart';
 import '../routing/cos_navigation.dart';
 import '../routing/mini_program_registry.dart';
@@ -115,8 +116,9 @@ class _WeChatStyleLauncherHeader extends StatelessWidget {
         children: [
           SizedBox(height: top),
           SizedBox(
-            height: 44,
+            height: 48,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(width: 12),
                 Image.asset(
@@ -126,13 +128,37 @@ class _WeChatStyleLauncherHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    kAppDisplayName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: WeChatMiniUiColors.titleText,
-                    ),
+                  child: ListenableBuilder(
+                    listenable: CosCompanyContext.instance,
+                    builder: (context, _) {
+                      final cc = CosCompanyContext.instance;
+                      final sub = cc.activeDisplayLabel;
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            kAppDisplayName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: WeChatMiniUiColors.titleText,
+                            ),
+                          ),
+                          if (sub != null)
+                            Text(
+                              sub,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: WeChatMiniUiColors.secondaryText
+                                    .withValues(alpha: 0.95),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ),
                 IconButton(
