@@ -35,4 +35,5 @@ flutter_launcher_icons:
   # 与 vendor/cos `cos_logo_favicon.svg` 托盘色一致；前景为 1024px 矢量导出图
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: assets/brand/app_icon_source.png
-  adaptive_icon_foreground_inset: 8
+  # 百分比内缩，数值越大图形越小、四周留白越多（launcher 工具写入 mipmap-anydpi-v26/ic_launcher.xml）
+  adaptive_icon_foreground_inset: 22
