@@ -1,0 +1,38 @@
+name: cos_work_app
+description: 企业内部工具 App（Flutter WebView 套壳，加载 prod worker-portal）
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter: ^4.13.1
+  package_info_plus: ^8.1.2
+  shared_preferences: ^2.3.3
+  flutter_secure_storage: ^9.2.2
+  local_auth: ^2.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+  webview_flutter_platform_interface: ^2.14.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/brand/app_icon_source.png
+    - assets/brand/cos_logo_favicon.svg
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/brand/app_icon_source.png
+  # 与 vendor/cos `cos_logo_favicon.svg` 托盘色一致；前景为 1024px 矢量导出图
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: assets/brand/app_icon_source.png
+  adaptive_icon_foreground_inset: 8
