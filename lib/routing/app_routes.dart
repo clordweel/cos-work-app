@@ -4,4 +4,5 @@ abstract final class AppRoutes {
   static const String userCenter = '/user-center';
   static const String settings = '/settings';
   static const String profileEdit = '/profile-edit';
+  static const String loginHistory = '/login-history';
 }

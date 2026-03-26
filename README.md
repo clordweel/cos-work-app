@@ -1,6 +1,6 @@
 # cos_work_app
 
-企业内部工具 App（Flutter WebView 套壳，加载 prod worker-portal）。
+合思协产 — 企业内部工作台（Flutter，内嵌业务 Web 页面）。
 
 与 [cos-worker-app](../cos-worker-app)（Capacitor Android）为兄弟项目，共用同一后端 `https://cos.junhai.work`。
 

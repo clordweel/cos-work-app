@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../auth/cos_auth_service.dart';
 import '../wechat_ui/wechat_colors.dart';
 
-/// 原生个人信息（展示名、手机等）；与 Frappe 用户 id 分离，可后续对接同步 API。
+/// 编辑在本应用内展示的个人信息。
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key});
 
@@ -68,7 +68,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _SectionTitle(title: '主站账号（只读）'),
+          _SectionTitle(title: '账号信息'),
           Material(
             color: WeChatMiniUiColors.navBarBackground,
             borderRadius: BorderRadius.circular(12),
@@ -86,7 +86,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               color: WeChatMiniUiColors.navBarBackground,
               borderRadius: BorderRadius.circular(12),
               child: ListTile(
-                title: const Text('主站姓名'),
+                title: const Text('姓名'),
                 subtitle: Text(
                   auth.fullName!,
                   style: const TextStyle(fontSize: 14),
@@ -95,12 +95,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          _SectionTitle(title: '本机展示信息'),
+          _SectionTitle(title: '在本应用的展示'),
           TextField(
             controller: _displayName,
             decoration: const InputDecoration(
               labelText: '展示名称（可选）',
-              hintText: '在应用内显示，可与主站姓名不同',
+              hintText: '可与上方姓名不同，仅本应用可见',
               border: OutlineInputBorder(),
               filled: true,
               fillColor: Colors.white,
@@ -119,7 +119,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            '以上内容仅存于本设备，后续可通过接口与主站同步。',
+            '以上内容仅保存在本设备。',
             style: TextStyle(
               fontSize: 12,
               color: WeChatMiniUiColors.secondaryText.withValues(alpha: 0.9),

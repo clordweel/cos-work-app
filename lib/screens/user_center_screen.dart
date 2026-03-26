@@ -4,11 +4,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../auth/cos_auth_service.dart';
 import '../auth/cos_company_context.dart';
 import '../routing/app_routes.dart';
+import 'login_history_screen.dart';
 import '../routing/cos_navigation.dart';
 import '../routing/mini_program_registry.dart';
 import '../wechat_ui/wechat_colors.dart';
 
-/// 原生用户中心：个人信息、Desk（Web 小程序）、切换账号（原生登出）。
+/// 用户中心：公司、个人信息、工作台与账号。
 class UserCenterScreen extends StatelessWidget {
   const UserCenterScreen({super.key});
 
@@ -21,7 +22,9 @@ class UserCenterScreen extends StatelessWidget {
       if (ctx.companies.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(ctx.errorMessage ?? '暂无可选账套，请确认站点已部署 cos.company_context_api'),
+            content: Text(
+              ctx.errorMessage ?? '暂时无法获取公司列表，请检查网络或稍后重试',
+            ),
           ),
         );
       }
@@ -30,7 +33,7 @@ class UserCenterScreen extends StatelessWidget {
     if (ctx.companies.length == 1) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前仅有一个可用账套')),
+          const SnackBar(content: Text('当前仅关联一家公司')),
         );
       }
       return;
@@ -46,7 +49,7 @@ class UserCenterScreen extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: Text(
-                  '选择账套（公司）',
+                  '选择公司',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -72,35 +75,17 @@ class UserCenterScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已切换账套；小程序内请下拉刷新以同步数据')),
+        const SnackBar(content: Text('已切换，请在业务页面下拉刷新以查看最新数据')),
       );
     }
   }
 
-  Future<void> _confirmLogout(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('切换账号'),
-        content: const Text('将登出当前账号并清除本机会话，是否继续？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('登出'),
-          ),
-        ],
+  Future<void> _openSwitchAccountHistory(BuildContext context) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const LoginHistoryScreen(fromAccountSwitch: true),
       ),
     );
-    if (ok == true && context.mounted) {
-      await CosAuthService.instance.logout();
-      if (context.mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    }
   }
 
   @override
@@ -134,7 +119,7 @@ class UserCenterScreen extends StatelessWidget {
                     Navigator.of(context).pushNamed(AppRoutes.profileEdit),
               ),
               const SizedBox(height: 16),
-              _SectionTitle(title: '账套'),
+              _SectionTitle(title: '公司'),
               ListenableBuilder(
                 listenable: CosCompanyContext.instance,
                 builder: (context, _) {
@@ -146,11 +131,11 @@ class UserCenterScreen extends StatelessWidget {
                           : (cc.activeDisplayLabel != null
                               ? '当前：${cc.activeDisplayLabel}'
                               : (cc.companies.isEmpty
-                                  ? '登录后自动加载'
-                                  : '未设置默认公司'));
+                                  ? '进入后将自动获取'
+                                  : '尚未选择默认公司'));
                   return _NativeTile(
                     icon: Icons.apartment_outlined,
-                    title: '切换账套',
+                    title: '切换公司',
                     subtitle: subtitle,
                     onTap: cc.loading ? null : () => _pickCompany(context),
                   );
@@ -161,14 +146,14 @@ class UserCenterScreen extends StatelessWidget {
               _NativeTile(
                 icon: Icons.edit_outlined,
                 title: '个人信息',
-                subtitle: '本机展示名、手机号等（非 Frappe 网页）',
+                subtitle: '昵称、手机号等，仅在本应用内展示',
                 onTap: () =>
                     Navigator.of(context).pushNamed(AppRoutes.profileEdit),
               ),
               _NativeTile(
                 icon: Icons.dashboard_outlined,
-                title: '打开 Desk',
-                subtitle: 'Frappe 工作台（Web 小程序）',
+                title: '工作台',
+                subtitle: '在应用内打开完整管理界面',
                 onTap: () => CosNavigation.openMiniProgram(
                   context,
                   MiniProgramRegistry.deskHome,
@@ -177,11 +162,11 @@ class UserCenterScreen extends StatelessWidget {
               _NativeTile(
                 icon: Icons.swap_horiz_rounded,
                 title: '切换账号',
-                subtitle: '登出后使用原生登录页重新登录',
-                onTap: () => _confirmLogout(context),
+                subtitle: '从历史账号登出并跳到登录页，或仅登出',
+                onTap: () => _openSwitchAccountHistory(context),
               ),
               const SizedBox(height: 16),
-              _SectionTitle(title: '关于本机'),
+              _SectionTitle(title: '本应用'),
               FutureBuilder<PackageInfo>(
                 future: PackageInfo.fromPlatform(),
                 builder: (context, snap) {
@@ -196,17 +181,6 @@ class UserCenterScreen extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  '登录与会话由应用原生完成；业务功能仍通过已注册的小程序加载主站页面。',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.4,
-                    color: WeChatMiniUiColors.secondaryText.withValues(alpha: 0.9),
-                  ),
-                ),
-              ),
             ],
           );
         },

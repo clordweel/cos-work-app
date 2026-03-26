@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../mini_program/cos_mini_program.dart';
 
-/// Alpha：业务页由 Frappe 承载；在此注册相对路径，运行时与 [CosSiteStore] 拼成完整 URL。
+/// 注册各业务入口（路径相对服务器根地址）。
 abstract final class MiniProgramRegistry {
   static final CosMiniProgram piReimbursementPending = CosMiniProgram(
     id: 'pi_reimbursement_pending',
@@ -16,8 +16,8 @@ abstract final class MiniProgramRegistry {
 
   static final CosMiniProgram piReimbursementApproval = CosMiniProgram(
     id: 'pi_reimbursement_approval',
-    title: '报销审批(外链)',
-    subtitle: '凭审批链访问，或从待办进入',
+    title: '报销审批',
+    subtitle: '审批处理入口',
     launchPath: '/worker-portal/pi-reimbursement-approval',
     icon: Icons.link_outlined,
     accentColor: const Color(0xFF5E35B1),
@@ -27,7 +27,7 @@ abstract final class MiniProgramRegistry {
   static final CosMiniProgram stockReconciliation = CosMiniProgram(
     id: 'stock_reconciliation',
     title: '库存盘点',
-    subtitle: 'Stock Reconciliation',
+    subtitle: '库存盘点单据',
     launchPath: '/app/stock-reconciliation',
     icon: Icons.inventory_2_outlined,
     accentColor: const Color(0xFF2E7D32),
@@ -36,8 +36,8 @@ abstract final class MiniProgramRegistry {
 
   static final CosMiniProgram deskHome = CosMiniProgram(
     id: 'desk_home',
-    title: 'Desk',
-    subtitle: 'Frappe 工作台',
+    title: '工作台',
+    subtitle: '完整管理界面',
     launchPath: '/desk',
     icon: Icons.dashboard_outlined,
     accentColor: const Color(0xFF37474F),

@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 
 import 'config/app_brand.dart';
 import 'auth/cos_auth_service.dart';
+import 'auth/cos_login_history_store.dart';
 import 'config/cos_site_store.dart';
 import 'cos_theme.dart';
 import 'routing/app_routes.dart';
 import 'screens/biometric_gate_screen.dart';
+import 'screens/login_history_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/mini_program_launcher_screen.dart';
 import 'screens/profile_edit_screen.dart';
@@ -44,6 +46,7 @@ class _CosWorkAppState extends State<CosWorkApp> {
 
   Future<void> _boot() async {
     await CosSiteStore.instance.init();
+    await CosLoginHistoryStore.instance.init();
     await CosAuthService.instance.bootstrap();
     if (mounted) setState(() => _bootComplete = true);
   }
@@ -65,6 +68,10 @@ class _CosWorkAppState extends State<CosWorkApp> {
       listenable: Listenable.merge([auth, CosSiteStore.instance]),
       builder: (context, _) {
         return MaterialApp(
+          // 登录态变化时重建 Navigator，清掉 UserCenter / 历史登录 等压栈页面，立刻回到根登录页。
+          key: ValueKey<String>(
+            'root_${auth.isLoggedIn}_${auth.needsBiometricUnlock}',
+          ),
           title: kAppDisplayName,
           theme: buildCosWorkTheme(),
           home: !auth.isLoggedIn
@@ -76,6 +83,7 @@ class _CosWorkAppState extends State<CosWorkApp> {
             AppRoutes.settings: (_) => const SettingsScreen(),
             AppRoutes.userCenter: (_) => const UserCenterScreen(),
             AppRoutes.profileEdit: (_) => const ProfileEditScreen(),
+            AppRoutes.loginHistory: (_) => const LoginHistoryScreen(),
           },
         );
       },

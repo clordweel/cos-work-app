@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../config/app_brand.dart';
 import '../auth/cos_auth_service.dart';
-import '../auth/cos_biometric_gate.dart';
+import '../auth/cos_login_history_store.dart';
+import '../config/cos_site_config.dart';
 import '../config/cos_site_store.dart';
 import '../wechat_ui/wechat_colors.dart';
 import '../routing/app_routes.dart';
 
-/// 原生登录（Frappe `/api/method/login`），不加载 Frappe 登录页。
+/// 账号密码登录（原生请求，不内嵌网页登录页）。
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -21,6 +22,50 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   bool _submitting = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _tryConsumePendingPrefill();
+    });
+  }
+
+  /// 用户中心选历史账号并登出后，在此回填表单。
+  Future<void> _tryConsumePendingPrefill() async {
+    final pick =
+        CosLoginHistoryStore.instance.consumePendingPrefillForLoginScreen();
+    if (pick == null || !mounted) return;
+    await _applyHistoryPick(pick, clearSession: false);
+  }
+
+  Future<void> _applyHistoryPick(
+    CosLoginHistoryPick pick, {
+    required bool clearSession,
+  }) async {
+    try {
+      CosSiteConfig.parseOrigin(pick.originString);
+    } on FormatException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+      return;
+    }
+    await CosSiteStore.instance.setOrigin(pick.originString);
+    if (clearSession) {
+      await CosAuthService.instance.clearSessionExpectRelogin();
+    }
+    await CosLoginHistoryStore.instance.touchLastUsed(pick.id);
+    if (!mounted) return;
+    setState(() {
+      _usr.text = pick.username;
+      _pwd.text = pick.password ?? '';
+      _error = null;
+    });
+    if (pick.password == null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('未能读取已保存的密码，请手动输入')),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -41,53 +86,29 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     final err = await CosAuthService.instance.login(usr: u, pwd: p);
+    // 成功时会 notifyListeners 并换首页，本 State 可能随即 dispose，须先写历史再判断 mounted。
+    if (err == null) {
+      await CosLoginHistoryStore.instance.recordSuccessfulLogin(
+        originString: CosSiteStore.instance.origin.toString(),
+        username: u,
+        password: p,
+        displayName: CosAuthService.instance.fullName,
+      );
+    }
     if (!mounted) return;
     setState(() {
       _submitting = false;
       _error = err;
     });
-    if (err == null) {
-      await _offerBiometricSetupIfNeeded();
-    }
   }
 
-  Future<void> _offerBiometricSetupIfNeeded() async {
-    if (!mounted) return;
-    if (!await CosBiometricGate.isDeviceSupported()) return;
-    if (!await CosBiometricGate.hasEnrolledBiometrics()) return;
-    if (CosAuthService.instance.biometricGateEnabled) return;
-    if (!mounted) return;
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('启用生物识别解锁？'),
-        content: const Text(
-          '下次打开应用时，将先通过指纹或面容验证再进入主界面。\n\n'
-          '说明：此处使用系统生物识别保护本机已保存的登录会话；'
-          'FIDO2 / Passkey 需主站提供 WebAuthn 接口，当前版本未接入。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('暂不'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('启用'),
-          ),
-        ],
-      ),
+  Future<void> _openLoginHistory() async {
+    final result = await Navigator.of(context).pushNamed(
+      AppRoutes.loginHistory,
     );
-    if (go != true || !mounted) return;
-    final msg = await CosAuthService.instance.setBiometricGateEnabled(true);
     if (!mounted) return;
-    if (msg != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已开启生物识别解锁')),
-      );
-    }
+    if (result is! CosLoginHistoryPick) return;
+    await _applyHistoryPick(result, clearSession: true);
   }
 
   @override
@@ -109,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '使用主站账号登录',
+              '使用企业账号登录',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,
@@ -124,14 +145,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: WeChatMiniUiColors.navBarBackground,
                   borderRadius: BorderRadius.circular(12),
                   child: ListTile(
-                    title: const Text('站点地址'),
+                    title: const Text('服务器地址'),
                     subtitle: Text(
                       CosSiteStore.instance.isInitialized
                           ? CosSiteStore.instance.originDisplay
                           : '加载中…',
                       style: const TextStyle(fontSize: 13),
                     ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.history_rounded),
+                          tooltip: '历史登录',
+                          onPressed: _openLoginHistory,
+                          color: WeChatMiniUiColors.secondaryText,
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: WeChatMiniUiColors.secondaryText
+                              .withValues(alpha: 0.65),
+                        ),
+                      ],
+                    ),
                     onTap: () =>
                         Navigator.of(context).pushNamed(AppRoutes.settings),
                   ),
@@ -198,7 +234,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              '登录成功后，会话将写入本机并与小程序 WebView 共享（同站点 Cookie）。',
+              '登录信息会安全保存在本机，便于您使用工作台与各业务应用。',
               style: TextStyle(
                 fontSize: 12,
                 height: 1.4,

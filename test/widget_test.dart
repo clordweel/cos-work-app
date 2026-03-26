@@ -20,7 +20,7 @@ void main() {
     WebViewPlatform.instance = FakeWebViewPlatformForTest();
   });
 
-  testWidgets('启动器呈现「我的小程序」', (WidgetTester tester) async {
+  testWidgets('启动器呈现「应用」区块', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
     await CosSiteStore.instance.init();
     CosAuthService.instance.testingForceAuthenticated();
@@ -33,7 +33,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('我的小程序'), findsOneWidget);
+    expect(find.text('应用'), findsOneWidget);
   });
 
   testWidgets('CosWorkApp bootstrap 后未登录显示登录页', (WidgetTester tester) async {

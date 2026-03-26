@@ -79,7 +79,7 @@ class CosCompanyContext extends ChangeNotifier {
       final origin = CosSiteStore.instance.origin;
       final cookies = await _sessionCookies();
       if (cookies.isEmpty) {
-        errorMessage = '无会话，无法加载账套';
+        errorMessage = '请先登录';
         loading = false;
         notifyListeners();
         return;
@@ -91,7 +91,7 @@ class CosCompanyContext extends ChangeNotifier {
         dottedMethod: 'cos.company_context_api.list_accessible_companies',
       );
       if (!listRes.ok) {
-        errorMessage = listRes.errorText ?? '加载账套失败';
+        errorMessage = listRes.errorText ?? '公司列表加载失败';
         loading = false;
         notifyListeners();
         return;
@@ -139,11 +139,11 @@ class CosCompanyContext extends ChangeNotifier {
     }
   }
 
-  /// 设置会话默认公司；成功后 WebView/后续 API 按新公司上下文执行。
+  /// 设置当前默认公司（会话级）。
   Future<String?> setActiveCompany(String name) async {
-    if (!CosSiteStore.instance.isInitialized) return '站点未就绪';
+    if (!CosSiteStore.instance.isInitialized) return '请稍候再试';
     final cookies = await _sessionCookies();
-    if (cookies.isEmpty) return '无会话';
+    if (cookies.isEmpty) return '请先登录';
 
     loading = true;
     errorMessage = null;
@@ -161,7 +161,7 @@ class CosCompanyContext extends ChangeNotifier {
     if (!res.ok) {
       errorMessage = res.errorText;
       notifyListeners();
-      return res.errorText ?? '切换失败';
+      return res.errorText ?? '切换公司失败';
     }
 
     if (res.message is Map) {

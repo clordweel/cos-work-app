@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -34,6 +35,9 @@ class CosAuthService extends ChangeNotifier {
   bool _biometricGateEnabled = false;
   bool _sessionBiometricUnlocked = true;
 
+  /// 本次「密码登录成功」后，由首页弹出一次指纹/面容引导（避免在已卸载的 Login 页上弹系统验证）。
+  bool _biometricLoginOfferPending = false;
+
   bool get isBootstrapDone => _bootstrapDone;
   bool get isLoggedIn => _loggedIn;
   String? get userId => _userId;
@@ -48,6 +52,13 @@ class CosAuthService extends ChangeNotifier {
   bool get needsBiometricUnlock =>
       _loggedIn && _biometricGateEnabled && !_sessionBiometricUnlocked;
 
+  /// 是否需要在进入首页后展示「开启指纹/面容」引导（由 [MiniProgramLauncherScreen] 消费）。
+  bool get hasBiometricLoginOfferPending => _biometricLoginOfferPending;
+
+  void clearBiometricLoginOffer() {
+    _biometricLoginOfferPending = false;
+  }
+
   /// 仅单测：跳过登录门禁。
   @visibleForTesting
   void testingForceAuthenticated() {
@@ -59,6 +70,7 @@ class CosAuthService extends ChangeNotifier {
   }
 
   Future<void> bootstrap() async {
+    _biometricLoginOfferPending = false;
     await CosSiteStore.instance.init();
     await _loadBiometricGatePref();
     final sid = await _secure.read(key: CosSessionKeys.frappeSid);
@@ -84,10 +96,8 @@ class CosAuthService extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    if (verify == FrappeSessionVerifyResult.inconclusive) {
-      debugPrint(
-        'bootstrap: 会话校验未连通服务器，保留本地 sid（避免误判为已登出）',
-      );
+    if (verify == FrappeSessionVerifyResult.inconclusive && kDebugMode) {
+      debugPrint('bootstrap: 未连通服务器，暂保留本地登录状态');
     }
     await _restoreWebCookiesAfterVerify(origin, sid);
     await _loadProfilePrefs();
@@ -114,7 +124,7 @@ class CosAuthService extends ChangeNotifier {
       return outcome.errorMessage ?? '登录失败';
     }
     final sid = outcome.sidValue;
-    if (sid == null) return '未获取到会话';
+    if (sid == null) return '登录未完成，请重试';
     await _secure.write(key: CosSessionKeys.frappeSid, value: sid);
     await _persistFrappeWebCookies(outcome.cookies);
     await CosWebCookieSync.applyCookies(origin, outcome.cookies);
@@ -139,6 +149,9 @@ class CosAuthService extends ChangeNotifier {
     _loggedIn = true;
     _sessionBiometricUnlocked = true;
     _bootstrapDone = true;
+    if (!_biometricGateEnabled) {
+      _biometricLoginOfferPending = true;
+    }
     notifyListeners();
     await CosCompanyContext.instance.refreshFromServer();
     return null;
@@ -160,15 +173,23 @@ class CosAuthService extends ChangeNotifier {
       return null;
     }
     if (!await CosBiometricGate.isDeviceSupported()) {
-      return '当前设备不支持生物识别';
+      return '本机不支持指纹或面容';
     }
     if (!await CosBiometricGate.hasEnrolledBiometrics()) {
       return '请先在系统设置中录入指纹或面容';
     }
-    final ok = await CosBiometricGate.authenticate(
-      localizedReason: '验证后即可开启生物识别解锁',
+    var ok = await CosBiometricGate.authenticate(
+      localizedReason: '验证通过后即可开启指纹/面容解锁',
     );
-    if (!ok) return '验证已取消或失败';
+    if (!ok) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      ok = await CosBiometricGate.authenticate(
+        localizedReason: '请再次验证以开启指纹/面容解锁',
+      );
+    }
+    if (!ok) {
+      return '验证未通过，可稍后在「设置」中开启指纹/面容解锁';
+    }
     await prefs.setBool(_kPrefsBiometricGateEnabled, true);
     _biometricGateEnabled = true;
     _sessionBiometricUnlocked = true;
@@ -199,19 +220,22 @@ class CosAuthService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _biometricLoginOfferPending = false;
     final sid = await _secure.read(key: CosSessionKeys.frappeSid);
     final origin = CosSiteStore.instance.origin;
-    if (sid != null && sid.isNotEmpty) {
-      await FrappeNativeSession.logout(siteOrigin: origin, sidValue: sid);
-    }
+    // 先清本地并刷新 UI，避免远端 /api/method/logout 阻塞导致「已点登出却仍停在历史页」。
     await _clearSessionData(clearSecureSid: true);
     _loggedIn = false;
     _sessionBiometricUnlocked = true;
     notifyListeners();
+    if (sid != null && sid.isNotEmpty) {
+      unawaited(FrappeNativeSession.logout(siteOrigin: origin, sidValue: sid));
+    }
   }
 
   /// 修改站点等场景：清除本地会话，需重新登录。
   Future<void> clearSessionExpectRelogin() async {
+    _biometricLoginOfferPending = false;
     await _clearSessionData(clearSecureSid: true);
     _loggedIn = false;
     _sessionBiometricUnlocked = true;

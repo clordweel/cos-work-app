@@ -65,7 +65,7 @@ class _BiometricGateScreenState extends State<BiometricGateScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                '使用指纹、面容等系统生物识别解锁\n（非独立 Passkey，会话仍来自主站登录）',
+                '请使用指纹或面容验证身份',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -105,7 +105,7 @@ class _BiometricGateScreenState extends State<BiometricGateScreen> {
               const SizedBox(height: 12),
               TextButton(
                 onPressed: _busy ? null : _logoutToPassword,
-                child: const Text('退出并用密码登录'),
+                child: const Text('改用密码重新登录'),
               ),
               const SizedBox(height: 24),
             ],

@@ -1,10 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 
-/// 系统生物识别（指纹 / 面容等），用于 App 解锁门禁。
-///
-/// FIDO2 / WebAuthn **Passkey** 需服务端作为 Relying Party 注册与校验；当前 Frappe 登录仍走账号密码，
-/// 本类不实现跨设备 Passkey，仅调用系统 [LocalAuthentication]。
+/// 系统指纹 / 面容，用于打开应用时的快捷验证（本机）。
 class CosBiometricGate {
   CosBiometricGate._();
 

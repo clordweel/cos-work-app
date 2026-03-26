@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../auth/cos_auth_service.dart';
+import '../auth/cos_biometric_gate.dart';
 import '../auth/cos_company_context.dart';
 import '../config/app_brand.dart';
 import '../routing/cos_navigation.dart';
@@ -8,9 +10,91 @@ import '../routing/mini_program_registry.dart';
 import '../mini_program/cos_mini_program.dart';
 import '../wechat_ui/wechat_colors.dart';
 
-/// 仿微信小程序列表页：浅灰底 + 白顶栏 + 宫格入口。
-class MiniProgramLauncherScreen extends StatelessWidget {
+/// 首页：应用入口宫格。
+class MiniProgramLauncherScreen extends StatefulWidget {
   const MiniProgramLauncherScreen({super.key});
+
+  @override
+  State<MiniProgramLauncherScreen> createState() =>
+      _MiniProgramLauncherScreenState();
+}
+
+class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
+  bool _postLoginBiometricScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _schedulePostLoginBiometricOffer();
+    });
+  }
+
+  /// 登录成功后 [CosAuthService] 会置位；在此用稳定 context 弹窗，并在关闭 Material 对话框后再调系统生物识别。
+  Future<void> _schedulePostLoginBiometricOffer() async {
+    if (_postLoginBiometricScheduled) return;
+    if (!CosAuthService.instance.hasBiometricLoginOfferPending) return;
+    _postLoginBiometricScheduled = true;
+
+    if (!await CosBiometricGate.isDeviceSupported()) {
+      CosAuthService.instance.clearBiometricLoginOffer();
+      return;
+    }
+    if (!await CosBiometricGate.hasEnrolledBiometrics()) {
+      CosAuthService.instance.clearBiometricLoginOffer();
+      return;
+    }
+    if (CosAuthService.instance.biometricGateEnabled) {
+      CosAuthService.instance.clearBiometricLoginOffer();
+      return;
+    }
+    if (!mounted) {
+      CosAuthService.instance.clearBiometricLoginOffer();
+      return;
+    }
+
+    CosAuthService.instance.clearBiometricLoginOffer();
+
+    final go = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('启用指纹或面容解锁？'),
+        content: const Text(
+          '下次打开应用时，可先验证指纹或面容再进入，无需重复输入密码。\n\n'
+          '说明：用于保护本机已登录状态，不会代替您的登录密码。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('暂不'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('启用'),
+          ),
+        ],
+      ),
+    );
+
+    if (go != true || !mounted) return;
+
+    await Future<void>.delayed(const Duration(milliseconds: 520));
+    if (!mounted) return;
+
+    final msg = await CosAuthService.instance.setBiometricGateEnabled(true);
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    if (msg != null) {
+      messenger.showSnackBar(SnackBar(content: Text(msg)));
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('已开启指纹/面容解锁')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +123,7 @@ class MiniProgramLauncherScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '我的小程序',
+                            '应用',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -48,7 +132,7 @@ class MiniProgramLauncherScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '各入口共享主站登录（同域名 Cookie）。首次使用可打开「登录」。',
+                            '点击下方图标进入对应功能。若提示登录，请先在登录页完成验证。',
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.35,

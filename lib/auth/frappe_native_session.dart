@@ -64,7 +64,7 @@ abstract final class FrappeNativeSession {
       final cookies = res.cookies;
       final hasSid = cookies.any((c) => c.name == 'sid');
       if (!hasSid) {
-        return FrappeLoginOutcome.fail('服务器未返回会话 Cookie（sid），请检查站点地址与 HTTPS。');
+        return FrappeLoginOutcome.fail('无法完成登录，请检查服务器地址与网络。');
       }
       return FrappeLoginOutcome.ok(cookies: cookies, rawJson: map);
     } on SocketException catch (e) {

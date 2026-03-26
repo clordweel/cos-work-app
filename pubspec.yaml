@@ -1,5 +1,5 @@
 name: cos_work_app
-description: 企业内部工具 App（Flutter WebView 套壳，加载 prod worker-portal）
+description: 合思协产企业内部工作台（移动端）
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_slidable: ^3.1.2
   webview_flutter: ^4.13.1
   package_info_plus: ^8.1.2
   shared_preferences: ^2.3.3

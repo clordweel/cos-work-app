@@ -9,7 +9,7 @@ import '../config/cos_site_config.dart';
 import '../config/cos_site_store.dart';
 import '../wechat_ui/wechat_colors.dart';
 
-/// 原生设置：可编辑站点根地址（保存后需重新登录）。
+/// 设置：服务器地址、安全与关于。
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -75,7 +75,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('站点已更新，请重新登录'),
+          content: Text('服务器地址已更新，请重新登录'),
         ),
       );
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -89,7 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await CosAuthService.instance.clearSessionExpectRelogin();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已恢复默认站点，请重新登录')),
+      const SnackBar(content: Text('已恢复默认地址，请重新登录')),
     );
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
@@ -112,7 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         children: [
           const SizedBox(height: 12),
-          _SectionTitle(title: '站点'),
+          _SectionTitle(title: '服务器'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Material(
@@ -159,7 +159,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: _resetToDefault,
             child: Text(
-              '恢复编译默认值（${CosSiteConfig.defaultOriginString}）',
+              '恢复默认地址（${CosSiteConfig.defaultOriginString}）',
               style: TextStyle(
                 fontSize: 13,
                 color: WeChatMiniUiColors.secondaryText,
@@ -169,7 +169,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             child: Text(
-              '修改站点会清除当前登录态。未保存的覆盖仍可通过「恢复默认」使用 --dart-define=COS_SITE_ORIGIN。',
+              '修改服务器地址将退出当前登录。若填写有误，可通过「恢复默认地址」还原。',
               style: TextStyle(
                 fontSize: 12,
                 height: 1.35,
@@ -215,8 +215,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final subtitle = !_bioCapsLoaded
                   ? '检测中…'
                   : _bioCapable
-                      ? '使用系统指纹、面容等验证后进入主界面'
-                      : '当前设备不支持或未录入指纹 / 面容';
+                      ? '打开应用时用指纹或面容确认身份'
+                      : '请先在系统设置中录入指纹或面容';
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Material(
@@ -224,7 +224,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   borderRadius: BorderRadius.circular(12),
                   child: SwitchListTile(
                     title: const Text(
-                      '生物识别解锁',
+                      '指纹/面容解锁',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -260,7 +260,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(
-              '非 FIDO Passkey：不替代主站密码，仅保护本机会话。',
+              '不会替代登录密码，仅用于打开应用时的快捷验证。',
               style: TextStyle(
                 fontSize: 12,
                 height: 1.35,
@@ -278,7 +278,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Padding(
                 padding: EdgeInsets.all(16),
                 child: Text(
-                  '$kAppDisplayName：原生负责登录、站点与用户资料壳层；业务小程序加载主站 Frappe 页面。',
+                  '$kAppDisplayName 是企业内部工作台，登录后可使用工作台与各业务应用。',
                   style: TextStyle(
                     fontSize: 14,
                     height: 1.45,
