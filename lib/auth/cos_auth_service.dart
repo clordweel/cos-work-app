@@ -13,6 +13,7 @@ import 'cos_biometric_gate.dart';
 import 'cos_session_storage_keys.dart';
 import 'frappe_native_session.dart';
 import 'cos_company_context.dart';
+import '../mini_program/cos_mini_program_catalog.dart';
 
 const _kSecureWorkerPortalToken = 'cos_worker_portal_wpt';
 const _kPrefsUserId = 'cos_frappe_user_id';
@@ -108,6 +109,7 @@ class CosAuthService extends ChangeNotifier {
     _bootstrapDone = true;
     notifyListeners();
     await CosCompanyContext.instance.refreshFromServer();
+    unawaited(CosMiniProgramCatalog.instance.refreshFromServer());
   }
 
   Future<String?> login({
@@ -154,6 +156,7 @@ class CosAuthService extends ChangeNotifier {
     }
     notifyListeners();
     await CosCompanyContext.instance.refreshFromServer();
+    unawaited(CosMiniProgramCatalog.instance.refreshFromServer());
     return null;
   }
 
@@ -243,6 +246,7 @@ class CosAuthService extends ChangeNotifier {
   }
 
   Future<void> _clearSessionData({required bool clearSecureSid}) async {
+    CosMiniProgramCatalog.instance.clear();
     if (clearSecureSid) {
       CosCompanyContext.instance.clear();
       await _secure.delete(key: CosSessionKeys.frappeSid);

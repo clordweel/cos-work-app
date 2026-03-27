@@ -11,6 +11,7 @@ import 'screens/biometric_gate_screen.dart';
 import 'screens/login_history_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/mini_program_launcher_screen.dart';
+import 'screens/mini_program_market_screen.dart';
 import 'screens/profile_edit_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/user_center_screen.dart';
@@ -84,6 +85,7 @@ class _CosWorkAppState extends State<CosWorkApp> {
             AppRoutes.userCenter: (_) => const UserCenterScreen(),
             AppRoutes.profileEdit: (_) => const ProfileEditScreen(),
             AppRoutes.loginHistory: (_) => const LoginHistoryScreen(),
+            AppRoutes.miniProgramMarket: (_) => const MiniProgramMarketScreen(),
           },
         );
       },

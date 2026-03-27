@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'cos_auth_service.dart';
+
 /// 冷启动校验 sid 时的结论（避免把「网络抖动」当成「已登出」并清空本地会话）。
 enum FrappeSessionVerifyResult {
   /// `get_logged_user` 返回有效用户
@@ -20,17 +22,59 @@ class FrappeRpcResult {
     required this.ok,
     this.message,
     this.errorText,
+    this.httpStatus,
+    this.excType,
   });
 
-  factory FrappeRpcResult.success(dynamic message) =>
-      FrappeRpcResult._(ok: true, message: message);
+  factory FrappeRpcResult.success(
+    dynamic message, {
+    int? httpStatus,
+  }) =>
+      FrappeRpcResult._(
+        ok: true,
+        message: message,
+        httpStatus: httpStatus,
+      );
 
-  factory FrappeRpcResult.failure(String text) =>
-      FrappeRpcResult._(ok: false, errorText: text);
+  factory FrappeRpcResult.failure(
+    String text, {
+    int? httpStatus,
+    String? excType,
+  }) =>
+      FrappeRpcResult._(
+        ok: false,
+        errorText: text,
+        httpStatus: httpStatus,
+        excType: excType,
+      );
 
   final bool ok;
   final dynamic message;
   final String? errorText;
+
+  /// 响应对应的 HTTP 状态码（若有）；成功时多为 200。
+  final int? httpStatus;
+
+  /// Frappe JSON 中的 `exc_type`（若有）。
+  final String? excType;
+
+  /// 是否应视为「会话已失效」并清本地登录态（如 User Not Found、AuthenticationError）。
+  bool get indicatesAuthFailure {
+    if (ok) return false;
+    final s = httpStatus;
+    if (s == 401) return true;
+    final et = (excType ?? '').toLowerCase();
+    if (et.contains('authentication')) return true;
+    final t = (errorText ?? '').toLowerCase();
+    if (t.contains('user not found')) return true;
+    if (t.contains('usernotfounderror')) return true;
+    if (t.contains('login required')) return true;
+    if (t.contains('invalid session')) return true;
+    if (t.contains('session expired')) return true;
+    if (t.contains('does not exist') && t.contains('user')) return true;
+    if (t.contains('doesnotexist') && t.contains('user')) return true;
+    return false;
+  }
 }
 
 /// 使用 [HttpClient] 调用 Frappe 登录/会话接口（不经过 WebView）。
@@ -289,6 +333,12 @@ abstract final class FrappeNativeSession {
     return null;
   }
 
+  /// 所有 `/api/method` GET/POST 在解析结果后调用：会话类错误统一清本地登录态。
+  static Future<void> _applyAuthFailureFromRpc(FrappeRpcResult r) async {
+    if (r.ok || !r.indicatesAuthFailure) return;
+    await CosAuthService.instance.clearSessionExpectRelogin();
+  }
+
   static Future<FrappeRpcResult> callMethodGet({
     required Uri siteOrigin,
     required List<Cookie> cookies,
@@ -301,7 +351,9 @@ abstract final class FrappeNativeSession {
       _attachCookies(req, siteOrigin.host, cookies);
       final res = await req.close();
       final text = await res.transform(utf8.decoder).join();
-      return _parseRpcResponse(res.statusCode, text);
+      final parsed = _parseRpcResponse(res.statusCode, text);
+      await _applyAuthFailureFromRpc(parsed);
+      return parsed;
     } on SocketException catch (e) {
       return FrappeRpcResult.failure('网络错误：${e.message}');
     } on HandshakeException catch (e) {
@@ -335,7 +387,9 @@ abstract final class FrappeNativeSession {
       req.write(body);
       final res = await req.close();
       final text = await res.transform(utf8.decoder).join();
-      return _parseRpcResponse(res.statusCode, text);
+      final parsed = _parseRpcResponse(res.statusCode, text);
+      await _applyAuthFailureFromRpc(parsed);
+      return parsed;
     } on SocketException catch (e) {
       return FrappeRpcResult.failure('网络错误：${e.message}');
     } on HandshakeException catch (e) {
@@ -347,28 +401,94 @@ abstract final class FrappeNativeSession {
     }
   }
 
+  static String? _frappeExceptionText(dynamic ex) {
+    if (ex is String && ex.isNotEmpty) return ex;
+    if (ex is List) {
+      final buf = StringBuffer();
+      for (final e in ex) {
+        final s = e?.toString().trim() ?? '';
+        if (s.isNotEmpty) {
+          if (buf.isNotEmpty) buf.writeln();
+          buf.write(s);
+        }
+      }
+      if (buf.isNotEmpty) return buf.toString();
+    }
+    return null;
+  }
+
+  static String? _frappeServerMessagesText(dynamic sm) {
+    if (sm is! String || sm.isEmpty) return null;
+    try {
+      final d = jsonDecode(sm);
+      if (d is List) {
+        final parts = <String>[];
+        for (final e in d) {
+          if (e == null) continue;
+          var s = e.toString();
+          if (s.isEmpty) continue;
+          try {
+            final inner = jsonDecode(s);
+            if (inner is Map && inner['message'] != null) {
+              s = inner['message'].toString();
+            }
+          } catch (_) {}
+          if (s.isNotEmpty) parts.add(s);
+        }
+        if (parts.isNotEmpty) return parts.join('\n');
+      }
+    } catch (_) {}
+    return null;
+  }
+
   static FrappeRpcResult _parseRpcResponse(int status, String text) {
     Map<String, dynamic>? map;
     try {
       final d = jsonDecode(text);
       if (d is Map<String, dynamic>) map = d;
-    } catch (_) {}
-    if (map != null && map['exc_type'] != null) {
-      final ex = map['exception'];
-      if (ex is String && ex.isNotEmpty) {
-        return FrappeRpcResult.failure(ex);
+      // jsonDecode 可能为 Map<dynamic, dynamic>
+      if (map == null && d is Map) {
+        map = Map<String, dynamic>.from(d);
       }
-      return FrappeRpcResult.failure('服务器错误');
+    } catch (_) {}
+    final excTypeStr = map != null ? map['exc_type']?.toString() : null;
+    if (map != null && map['exc_type'] != null) {
+      final fromEx = _frappeExceptionText(map['exception']);
+      if (fromEx != null) {
+        return FrappeRpcResult.failure(
+          fromEx,
+          httpStatus: status,
+          excType: excTypeStr,
+        );
+      }
+      final fromSm = _frappeServerMessagesText(map['_server_messages']);
+      if (fromSm != null) {
+        return FrappeRpcResult.failure(
+          fromSm,
+          httpStatus: status,
+          excType: excTypeStr,
+        );
+      }
+      final et = map['exc_type']?.toString();
+      if (et != null && et.isNotEmpty) {
+        return FrappeRpcResult.failure(et, httpStatus: status, excType: excTypeStr);
+      }
+      return FrappeRpcResult.failure(
+        '服务器错误',
+        httpStatus: status,
+        excType: excTypeStr,
+      );
     }
     if (status >= 400) {
       return FrappeRpcResult.failure(
         text.length > 200 ? '${text.substring(0, 200)}…' : text,
+        httpStatus: status,
       );
     }
     if (map != null && map.containsKey('message')) {
-      return FrappeRpcResult.success(map['message']);
+      return FrappeRpcResult.success(map['message'], httpStatus: status);
     }
-    return FrappeRpcResult.failure('无效响应');
+    return FrappeRpcResult.failure('无效响应', httpStatus: status);
   }
 
   static void _attachCookies(HttpClientRequest req, String host, List<Cookie> cookies) {

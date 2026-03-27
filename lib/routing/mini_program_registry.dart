@@ -6,8 +6,8 @@ import '../mini_program/cos_mini_program.dart';
 abstract final class MiniProgramRegistry {
   static final CosMiniProgram piReimbursementPending = CosMiniProgram(
     id: 'pi_reimbursement_pending',
-    title: '报销审批',
-    subtitle: '待审批的采购发票',
+    title: '报销待办',
+    subtitle: '待审批采购发票',
     launchPath: '/worker-portal/pi-reimbursement-pending',
     icon: Icons.fact_check_outlined,
     accentColor: const Color(0xFF1565C0),
@@ -16,7 +16,7 @@ abstract final class MiniProgramRegistry {
 
   static final CosMiniProgram piReimbursementApproval = CosMiniProgram(
     id: 'pi_reimbursement_approval',
-    title: '报销审批',
+    title: '报销处理',
     subtitle: '审批处理入口',
     launchPath: '/worker-portal/pi-reimbursement-approval',
     icon: Icons.link_outlined,

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -5,9 +6,10 @@ import '../auth/cos_auth_service.dart';
 import '../auth/cos_biometric_gate.dart';
 import '../auth/cos_company_context.dart';
 import '../config/app_brand.dart';
-import '../routing/cos_navigation.dart';
-import '../routing/mini_program_registry.dart';
+import '../config/cos_site_store.dart';
 import '../mini_program/cos_mini_program.dart';
+import '../mini_program/cos_mini_program_catalog.dart';
+import '../routing/cos_navigation.dart';
 import '../wechat_ui/wechat_colors.dart';
 
 /// 首页：应用入口宫格。
@@ -17,6 +19,94 @@ class MiniProgramLauncherScreen extends StatefulWidget {
   @override
   State<MiniProgramLauncherScreen> createState() =>
       _MiniProgramLauncherScreenState();
+}
+
+void _showLauncherProgramManageSheet(
+  BuildContext context,
+  CosMiniProgram program,
+) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) {
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Text(
+                program.title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.storefront_outlined,
+                color: WeChatMiniUiColors.capsuleIcon,
+              ),
+              title: const Text('应用市场'),
+              subtitle: const Text('浏览站点开放的小程序，添加后显示在首页'),
+              onTap: () {
+                Navigator.pop(ctx);
+                CosNavigation.openMiniProgramMarket(context);
+              },
+            ),
+            const Divider(height: 1),
+            if (program.serverDocName == null)
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('内置入口'),
+                subtitle: const Text(
+                  '当前为应用内置列表；连接站点同步后将显示后台配置并支持自选管理。',
+                ),
+              ),
+            if (program.serverDocName != null && !program.programEnabled)
+              const ListTile(
+                leading: Icon(Icons.block, color: Colors.orange),
+                title: Text('管理员已停用'),
+                subtitle: Text(
+                  '后台取消启用后入口仍保留在首页，但不可打开；恢复启用后将自动可用。',
+                ),
+              ),
+            if (program.serverDocName != null && program.userPinnedOnLauncher)
+              ListTile(
+                leading: Icon(Icons.remove_circle_outline, color: Colors.red.shade700),
+                title: const Text('从首页移除自选'),
+                subtitle: const Text(
+                  '仅删除您的自选记录；若角色仍分配此小程序，首页可能继续显示。',
+                ),
+                onTap: () async {
+                  final doc = program.serverDocName!;
+                  Navigator.pop(ctx);
+                  final err = await CosMiniProgramCatalog.instance
+                      .removeUserMiniProgram(doc);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(err ?? '已从首页移除自选'),
+                    ),
+                  );
+                },
+              ),
+            if (program.serverDocName != null && !program.userPinnedOnLauncher)
+              const ListTile(
+                leading: Icon(Icons.group_outlined),
+                title: Text('来自角色默认'),
+                subtitle: Text(
+                  '此入口由管理员按角色分配，无法在应用内移除；请联系管理员调整。',
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
@@ -114,64 +204,165 @@ class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
               onSettings: () => CosNavigation.openSettings(context),
             ),
             Expanded(
-              child: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '应用',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: WeChatMiniUiColors.secondaryText,
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  await CosMiniProgramCatalog.instance.refreshFromServer();
+                  await CosMiniProgramCatalog.instance.refreshMarketFromServer();
+                },
+                child: ListenableBuilder(
+                  listenable: Listenable.merge([
+                    CosMiniProgramCatalog.instance,
+                    CosSiteStore.instance,
+                  ]),
+                  builder: (context, _) {
+                    final programs =
+                        CosMiniProgramCatalog.instance.launcherPrograms;
+                    final origin = CosSiteStore.instance.isInitialized
+                        ? CosSiteStore.instance.origin
+                        : null;
+                    return CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '应用',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: WeChatMiniUiColors.secondaryText,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '长按图标打开管理：可移除自选小程序；在「应用市场」可将小程序添加到首页。下拉同步站点。',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    height: 1.35,
+                                    color: WeChatMiniUiColors.secondaryText
+                                        .withValues(alpha: 0.85),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '点击下方图标进入对应功能。若提示登录，请先在登录页完成验证。',
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.35,
-                              color: WeChatMiniUiColors.secondaryText
-                                  .withValues(alpha: 0.85),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          sliver: SliverGrid(
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              mainAxisSpacing: 24,
+                              crossAxisSpacing: 8,
+                              childAspectRatio: 0.74,
+                            ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final CosMiniProgram mp = programs[index];
+                                return _WeChatStylePortalTile(
+                                  program: mp,
+                                  siteOrigin: origin,
+                                  onOpen: () {
+                                    if (!mp.programEnabled) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            '该小程序已由管理员停用，恢复前无法打开。可长按入口进行管理。',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    CosNavigation.openMiniProgram(
+                                      context,
+                                      mp,
+                                    );
+                                  },
+                                  onLongPress: () =>
+                                      _showLauncherProgramManageSheet(
+                                        context,
+                                        mp,
+                                      ),
+                                );
+                              },
+                              childCount: programs.length,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        mainAxisSpacing: 24,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 0.74,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final CosMiniProgram mp =
-                              MiniProgramRegistry.forLauncherGrid[index];
-                          return _WeChatStylePortalTile(
-                            program: mp,
-                            onOpen: () => CosNavigation.openMiniProgram(
-                              context,
-                              mp,
+                        ),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                            child: Material(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () =>
+                                    CosNavigation.openMiniProgramMarket(context),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 14,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.storefront_outlined,
+                                        color: WeChatMiniUiColors.capsuleIcon,
+                                        size: 26,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              '应用市场',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: WeChatMiniUiColors
+                                                    .titleText,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '浏览站点开放的小程序，自选添加到首页',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                height: 1.35,
+                                                color: WeChatMiniUiColors
+                                                    .secondaryText
+                                                    .withValues(alpha: 0.9),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        color: WeChatMiniUiColors.secondaryText
+                                            .withValues(alpha: 0.65),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                          );
-                        },
-                        childCount: MiniProgramRegistry.forLauncherGrid.length,
-                      ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 40)),
-                ],
+                          ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 40)),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -276,47 +467,114 @@ class _WeChatStylePortalTile extends StatelessWidget {
   const _WeChatStylePortalTile({
     required this.program,
     required this.onOpen,
+    this.onLongPress,
+    this.siteOrigin,
   });
 
   final CosMiniProgram program;
   final VoidCallback onOpen;
+  final VoidCallback? onLongPress;
+  final Uri? siteOrigin;
 
   @override
   Widget build(BuildContext context) {
     final Color bg = program.accentColor ?? const Color(0xFF576B95);
     const Color fg = Colors.white;
+    final disabled = !program.programEnabled;
+    final iconUrl = siteOrigin != null
+        ? program.resolvedIconUrl(siteOrigin!)
+        : null;
+
+    Widget iconChild;
+    if (iconUrl != null && iconUrl.isNotEmpty) {
+      iconChild = CachedNetworkImage(
+        imageUrl: iconUrl,
+        width: 32,
+        height: 32,
+        fit: BoxFit.contain,
+        fadeInDuration: const Duration(milliseconds: 150),
+        placeholder: (_, __) =>
+            Icon(Icons.hourglass_empty_rounded, color: fg, size: 24),
+        errorWidget: (_, __, ___) => Icon(
+          program.materialIcon ?? Icons.apps_outlined,
+          color: fg,
+          size: 28,
+        ),
+      );
+    } else {
+      iconChild = Icon(
+        program.materialIcon ?? Icons.apps_outlined,
+        color: fg,
+        size: 28,
+      );
+    }
+
+    final tile = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: Center(child: iconChild),
+              ),
+            ),
+            if (disabled)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    '停用',
+                    style: TextStyle(
+                      fontSize: 9,
+                      height: 1,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          program.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.2,
+            fontWeight: FontWeight.w400,
+            color: disabled
+                ? WeChatMiniUiColors.secondaryText
+                : WeChatMiniUiColors.titleText,
+          ),
+        ),
+      ],
+    );
 
     return InkWell(
       onTap: onOpen,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: SizedBox(
-              width: 56,
-              height: 56,
-              child: Icon(program.icon, color: fg, size: 28),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            program.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.2,
-              fontWeight: FontWeight.w400,
-              color: WeChatMiniUiColors.titleText,
-            ),
-          ),
-        ],
+      child: Opacity(
+        opacity: disabled ? 0.55 : 1,
+        child: tile,
       ),
     );
   }

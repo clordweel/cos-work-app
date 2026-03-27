@@ -5,4 +5,5 @@ abstract final class AppRoutes {
   static const String settings = '/settings';
   static const String profileEdit = '/profile-edit';
   static const String loginHistory = '/login-history';
+  static const String miniProgramMarket = '/mini-program-market';
 }

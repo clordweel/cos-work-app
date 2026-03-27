@@ -91,7 +91,9 @@ class CosCompanyContext extends ChangeNotifier {
         dottedMethod: 'cos.company_context_api.list_accessible_companies',
       );
       if (!listRes.ok) {
-        errorMessage = listRes.errorText ?? '公司列表加载失败';
+        if (!listRes.indicatesAuthFailure) {
+          errorMessage = listRes.errorText ?? '公司列表加载失败';
+        }
         loading = false;
         notifyListeners();
         return;
@@ -127,6 +129,11 @@ class CosCompanyContext extends ChangeNotifier {
         final cn = m['company_name']?.toString();
         activeCompanyName = (cn != null && cn.isNotEmpty) ? cn : null;
       } else {
+        if (!curRes.ok && curRes.indicatesAuthFailure) {
+          loading = false;
+          notifyListeners();
+          return;
+        }
         activeName = null;
         activeCompanyName = null;
       }
@@ -159,9 +166,13 @@ class CosCompanyContext extends ChangeNotifier {
 
     loading = false;
     if (!res.ok) {
-      errorMessage = res.errorText;
+      if (!res.indicatesAuthFailure) {
+        errorMessage = res.errorText;
+      }
       notifyListeners();
-      return res.errorText ?? '切换公司失败';
+      return res.indicatesAuthFailure
+          ? '登录已失效，请重新登录'
+          : (res.errorText ?? '切换公司失败');
     }
 
     if (res.message is Map) {
