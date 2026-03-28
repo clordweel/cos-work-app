@@ -60,6 +60,10 @@ flutter run --dart-define=COS_SITE_ORIGIN=https://cos-dev.example.com
 
 Worker Portal 类小程序依赖壳在登录后写入的 **`wpt.` token**（`login_for_token`）；若仍进 Portal 登录页，确认站点已部署对应 COS 版本，并在壳中重新登录一次。
 
+## 开发规范
+
+架构分层、WebView/H5 约定、API 常量与协作边界见 **[docs/APP_DEV_SPEC.md](docs/APP_DEV_SPEC.md)**。
+
 ## 提交前自检
 
 ```powershell

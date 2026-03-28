@@ -27,16 +27,19 @@ class FrappeRpcResult {
     this.errorText,
     this.httpStatus,
     this.excType,
+    this.mergedSessionCookies,
   });
 
   factory FrappeRpcResult.success(
     dynamic message, {
     int? httpStatus,
+    List<Cookie>? mergedSessionCookies,
   }) =>
       FrappeRpcResult._(
         ok: true,
         message: message,
         httpStatus: httpStatus,
+        mergedSessionCookies: mergedSessionCookies,
       );
 
   factory FrappeRpcResult.failure(
@@ -49,6 +52,7 @@ class FrappeRpcResult {
         errorText: text,
         httpStatus: httpStatus,
         excType: excType,
+        mergedSessionCookies: null,
       );
 
   final bool ok;
@@ -60,6 +64,9 @@ class FrappeRpcResult {
 
   /// Frappe JSON 中的 `exc_type`（若有）。
   final String? excType;
+
+  /// 仅 [callMethodPostForm] 成功且响应含 `Set-Cookie` 时：请求 Cookie 与响应合并后的建议快照。
+  final List<Cookie>? mergedSessionCookies;
 
   /// 是否应视为「会话已失效」并清本地登录态（如 User Not Found、AuthenticationError）。
   bool get indicatesAuthFailure {
@@ -390,6 +397,27 @@ abstract final class FrappeNativeSession {
     }
   }
 
+  /// 从 Desk `/app` HTML 中兜底提取 `csrf_token`（部分环境仅写在页面而不 Set-Cookie）。
+  static String? _tryParseCsrfFromDeskHtml(String html) {
+    final m1 = RegExp(
+      r'''csrf_token['"]\s*:\s*['"]([^'"]+)['"]''',
+      caseSensitive: false,
+    ).firstMatch(html);
+    if (m1 != null) {
+      final v = m1.group(1)?.trim();
+      if (v != null && v.isNotEmpty) return v;
+    }
+    final m2 = RegExp(
+      r'''name\s*=\s*['"]csrf-token['"][^>]*content\s*=\s*['"]([^'"]+)['"]''',
+      caseSensitive: false,
+    ).firstMatch(html);
+    if (m2 != null) {
+      final v = m2.group(1)?.trim();
+      if (v != null && v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
   /// 模拟浏览器首访 Desk：`GET /app`，把响应里的 `Set-Cookie`（如 `csrf_token`）并入当前会话。
   ///
   /// 纯 `login` API 有时只下发 `sid`；原生 POST（切换公司等）依赖 `X-Frappe-CSRF-Token`，
@@ -405,12 +433,20 @@ abstract final class FrappeNativeSession {
       final req = await client.getUrl(uri);
       _attachCookies(req, siteOrigin.host, cookies);
       final res = await req.close();
-      await res.transform(utf8.decoder).join();
+      final text = await res.transform(utf8.decoder).join();
       final extra = _collectCookies(res, siteOrigin.host);
-      if (extra.isEmpty) return cookies;
       final byName = <String, Cookie>{for (final c in cookies) c.name: c};
       for (final c in extra) {
         byName[c.name] = c;
+      }
+      if (csrfTokenFromCookies(byName.values.toList()) == null &&
+          text.isNotEmpty) {
+        final extracted = _tryParseCsrfFromDeskHtml(text);
+        if (extracted != null && extracted.isNotEmpty) {
+          byName['csrf_token'] = Cookie('csrf_token', extracted)
+            ..domain = siteOrigin.host
+            ..path = '/';
+        }
       }
       return byName.values.toList();
     } catch (_) {
@@ -491,6 +527,34 @@ abstract final class FrappeNativeSession {
     return null;
   }
 
+  /// 调用 [CosFrappeApiMethods.getCsrfTokenForNativeShell]，把服务端会话里的 CSRF 写入 Cookie 列表。
+  ///
+  /// 解决：会话内已有 `csrf_token` 但原生端未从 `/app` 收到 Set-Cookie 时，POST 会被 Frappe 判为「无效请求」。
+  static Future<List<Cookie>> mergeCsrfFromShellTokenApi({
+    required Uri siteOrigin,
+    required List<Cookie> cookies,
+  }) async {
+    if (cookies.isEmpty) return cookies;
+    final res = await callMethodGet(
+      siteOrigin: siteOrigin,
+      cookies: cookies,
+      dottedMethod: CosFrappeApiMethods.getCsrfTokenForNativeShell,
+      invalidateSessionOnAuthFailure: false,
+    );
+    if (!res.ok || res.message is! Map) {
+      return cookies;
+    }
+    final m = Map<String, dynamic>.from(res.message as Map);
+    final t = m['csrf_token']?.toString();
+    if (t == null || t.isEmpty) return cookies;
+    final host = siteOrigin.host;
+    final byName = <String, Cookie>{for (final c in cookies) c.name: c};
+    byName['csrf_token'] = Cookie('csrf_token', t)
+      ..domain = host
+      ..path = '/';
+    return byName.values.toList();
+  }
+
   /// 仅在高度确信「站点会话已失效」时清本机登录态（勿把业务 Permission 当成登出）。
   static Future<void> _applyAuthFailureFromRpc(FrappeRpcResult r) async {
     if (r.ok || !r.shouldInvalidateNativeSession) return;
@@ -547,7 +611,13 @@ abstract final class FrappeNativeSession {
         req.headers.set('X-Frappe-CSRF-Token', csrf);
       }
       _attachCookies(req, siteOrigin.host, cookies);
-      final body = fields.entries
+      final bodyMap = Map<String, String>.from(fields);
+      if (csrf != null &&
+          csrf.isNotEmpty &&
+          !bodyMap.containsKey('csrf_token')) {
+        bodyMap['csrf_token'] = csrf;
+      }
+      final body = bodyMap.entries
           .map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}')
           .join('&');
       req.write(body);
@@ -557,7 +627,26 @@ abstract final class FrappeNativeSession {
       if (invalidateSessionOnAuthFailure) {
         await _applyAuthFailureFromRpc(parsed);
       }
-      return parsed;
+      if (!parsed.ok) {
+        return parsed;
+      }
+      List<Cookie>? mergedFromResponse;
+      final extra = _collectCookies(res, siteOrigin.host);
+      if (extra.isNotEmpty) {
+        final byName = <String, Cookie>{for (final c in cookies) c.name: c};
+        for (final c in extra) {
+          byName[c.name] = c;
+        }
+        mergedFromResponse = byName.values.toList();
+      }
+      if (mergedFromResponse == null) {
+        return parsed;
+      }
+      return FrappeRpcResult.success(
+        parsed.message,
+        httpStatus: parsed.httpStatus,
+        mergedSessionCookies: mergedFromResponse,
+      );
     } on SocketException catch (e) {
       return FrappeRpcResult.failure('网络错误：${e.message}');
     } on HandshakeException catch (e) {

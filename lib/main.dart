@@ -8,6 +8,7 @@ import 'config/cos_site_store.dart';
 import 'cos_theme.dart';
 import 'routing/app_routes.dart';
 import 'screens/biometric_gate_screen.dart';
+import 'screens/cos_boot_splash_screen.dart';
 import 'screens/login_history_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/mini_program_launcher_screen.dart';
@@ -58,9 +59,7 @@ class _CosWorkAppState extends State<CosWorkApp> {
       return MaterialApp(
         title: kAppDisplayName,
         theme: buildCosWorkTheme(),
-        home: const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        home: const CosBootSplashScreen(),
       );
     }
 

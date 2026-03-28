@@ -42,7 +42,7 @@ void main() {
     await tester.pumpWidget(const CosWorkApp());
     await tester.pump();
 
-    // 启动页为 CircularProgressIndicator，pumpAndSettle 会因无限动画超时。
+    // 启动页为 CosBootSplashScreen（渐变 + 进度条动画），pumpAndSettle 会超时。
     for (var i = 0; i < 60; i++) {
       await tester.pump(const Duration(milliseconds: 50));
       if (find.text('登录').evaluate().isNotEmpty) break;

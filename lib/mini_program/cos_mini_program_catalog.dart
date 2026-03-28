@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/cos_frappe_cookie_snapshot.dart';
 import '../auth/frappe_native_session.dart';
 import '../config/cos_frappe_api_methods.dart';
 import '../config/cos_site_store.dart';
@@ -32,10 +33,22 @@ class CosMiniProgramCatalog extends ChangeNotifier {
   Future<void>? _launcherRefreshInFlight;
   Future<void>? _marketRefreshInFlight;
 
-  List<CosMiniProgram> get launcherPrograms =>
-      (_remote != null && _remote!.isNotEmpty)
-          ? _remote!
-          : MiniProgramRegistry.forLauncherGrid;
+  /// 站点返回的宫格 + **未在后台出现的内置入口**（如壳内调试页），避免同步后只剩 bench 配置项。
+  List<CosMiniProgram> get launcherPrograms {
+    final remote = _remote;
+    if (remote == null || remote.isEmpty) {
+      return MiniProgramRegistry.forLauncherGrid;
+    }
+    final ids = {for (final p in remote) p.id};
+    final extras = <CosMiniProgram>[];
+    for (final p in MiniProgramRegistry.forLauncherGrid) {
+      if (p.serverDocName == null && !ids.contains(p.id)) {
+        extras.add(p);
+      }
+    }
+    if (extras.isEmpty) return remote;
+    return [...remote, ...extras];
+  }
 
   CosMiniProgram? findById(String id) {
     if (_remote != null) {
@@ -57,6 +70,53 @@ class CosMiniProgramCatalog extends ChangeNotifier {
       host: host,
       sidValue: sid,
     );
+  }
+
+  /// POST 小程序自选前合并 Desk / 会话 CSRF，避免「无效请求」。
+  Future<List<Cookie>> _sessionCookiesForPost() async {
+    var c = await _sessionCookies();
+    if (c.isEmpty) return c;
+    final origin = CosSiteStore.instance.origin;
+    try {
+      c = await FrappeNativeSession.mergeCookiesFromDeskBootstrap(
+        siteOrigin: origin,
+        cookies: c,
+      );
+      c = await FrappeNativeSession.mergeCsrfFromShellTokenApi(
+        siteOrigin: origin,
+        cookies: c,
+      );
+    } catch (_) {}
+    return c;
+  }
+
+  Future<void> _syncJarAfterMiniProgramPost(
+    Uri origin,
+    FrappeRpcResult res,
+  ) async {
+    if (res.mergedSessionCookies != null &&
+        res.mergedSessionCookies!.isNotEmpty) {
+      await persistFrappeCookieSnapshotAndSyncWebView(
+        siteOrigin: origin,
+        cookies: res.mergedSessionCookies!,
+      );
+    }
+    try {
+      var c = await _sessionCookies();
+      if (c.isEmpty) return;
+      c = await FrappeNativeSession.mergeCookiesFromDeskBootstrap(
+        siteOrigin: origin,
+        cookies: c,
+      );
+      c = await FrappeNativeSession.mergeCsrfFromShellTokenApi(
+        siteOrigin: origin,
+        cookies: c,
+      );
+      await persistFrappeCookieSnapshotAndSyncWebView(
+        siteOrigin: origin,
+        cookies: c,
+      );
+    } catch (_) {}
   }
 
   Future<void> refreshFromServer() {
@@ -206,13 +266,14 @@ class CosMiniProgramCatalog extends ChangeNotifier {
       }
       return res.errorText ?? '添加失败';
     }
+    await _syncJarAfterMiniProgramPost(origin, res);
     await refreshFromServer();
     await refreshMarketFromServer();
     return null;
   }
 
   Future<String?> removeUserMiniProgram(String frappeDocName) async {
-    final cookies = await _sessionCookies();
+    final cookies = await _sessionCookiesForPost();
     if (cookies.isEmpty) return '未登录';
     final origin = CosSiteStore.instance.origin;
     final res = await FrappeNativeSession.callMethodPostForm(
@@ -227,6 +288,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
       }
       return res.errorText ?? '移除失败';
     }
+    await _syncJarAfterMiniProgramPost(origin, res);
     await refreshFromServer();
     await refreshMarketFromServer();
     return null;

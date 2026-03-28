@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -7,9 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/cos_frappe_api_methods.dart';
 import '../config/cos_site_store.dart';
+import 'cos_frappe_cookie_snapshot.dart';
 import 'cos_secure_storage_factory.dart';
 import 'cos_session_storage_keys.dart';
-import 'cos_web_cookie_sync.dart';
 import 'frappe_native_session.dart';
 
 /// 单条公司（ERPNext `Company`）。
@@ -66,23 +65,22 @@ class CosCompanyContext extends ChangeNotifier {
     );
   }
 
-  /// 与 [CosAuthService._persistFrappeWebCookies] 同结构，供切换公司前合并 csrf 后写回。
-  Future<void> _persistFrappeCookieSnapshot(List<Cookie> cookies) async {
-    final prefs = await SharedPreferences.getInstance();
-    final list = cookies
-        .map(
-          (c) => <String, dynamic>{
-            'name': c.name,
-            'value': c.value,
-            if (c.domain != null) 'domain': c.domain,
-            if (c.path != null) 'path': c.path,
-            'secure': c.secure,
-            'httpOnly': c.httpOnly,
-            if (c.sameSite != null) 'sameSite': c.sameSite!.name,
-          },
-        )
-        .toList();
-    await prefs.setString(CosSessionKeys.frappeWebCookiesJson, jsonEncode(list));
+  /// 会话变更后：用当前快照再拉 `/app` + shell CSRF，写回磁盘与 WebView，降低 Desk 与原生漂移。
+  Future<void> _syncJarAfterSessionMutation(Uri origin) async {
+    final cookies = await _sessionCookies();
+    if (cookies.isEmpty) return;
+    var m = await FrappeNativeSession.mergeCookiesFromDeskBootstrap(
+      siteOrigin: origin,
+      cookies: cookies,
+    );
+    m = await FrappeNativeSession.mergeCsrfFromShellTokenApi(
+      siteOrigin: origin,
+      cookies: m,
+    );
+    await persistFrappeCookieSnapshotAndSyncWebView(
+      siteOrigin: origin,
+      cookies: m,
+    );
   }
 
   /// 登录成功或冷启动恢复会话后调用，拉取列表与当前默认公司。
@@ -182,12 +180,18 @@ class CosCompanyContext extends ChangeNotifier {
     final origin = CosSiteStore.instance.origin;
     // POST 依赖 X-Frappe-CSRF-Token；纯 login API 快照常无 csrf_token →「无效请求」
     try {
-      final merged = await FrappeNativeSession.mergeCookiesFromDeskBootstrap(
+      var merged = await FrappeNativeSession.mergeCookiesFromDeskBootstrap(
         siteOrigin: origin,
         cookies: cookies,
       );
-      await _persistFrappeCookieSnapshot(merged);
-      await CosWebCookieSync.applyCookies(origin, merged);
+      merged = await FrappeNativeSession.mergeCsrfFromShellTokenApi(
+        siteOrigin: origin,
+        cookies: merged,
+      );
+      await persistFrappeCookieSnapshotAndSyncWebView(
+        siteOrigin: origin,
+        cookies: merged,
+      );
       cookies = merged;
     } catch (e, st) {
       if (kDebugMode) {
@@ -218,6 +222,22 @@ class CosCompanyContext extends ChangeNotifier {
       activeName = m['company']?.toString();
       activeCompanyName = m['company_name']?.toString();
     }
+
+    if (res.mergedSessionCookies != null &&
+        res.mergedSessionCookies!.isNotEmpty) {
+      await persistFrappeCookieSnapshotAndSyncWebView(
+        siteOrigin: origin,
+        cookies: res.mergedSessionCookies!,
+      );
+    }
+    try {
+      await _syncJarAfterSessionMutation(origin);
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('setActiveCompany: 切换后对齐 Cookie 失败 $e\n$st');
+      }
+    }
+
     notifyListeners();
     return null;
   }

@@ -41,11 +41,7 @@ class WeChatMiniProgramCapsule extends StatelessWidget {
         children: [
           _CapsuleHit(
             onTap: onMore,
-            child: Icon(
-              Icons.more_horiz_rounded,
-              size: 22,
-              color: shell.capsuleIcon,
-            ),
+            child: _CapsuleThreeDots(color: shell.capsuleIcon),
           ),
           Container(
             width: 0.5,
@@ -58,6 +54,37 @@ class WeChatMiniProgramCapsule extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 加粗圆点（替代 Material 细线 `more_horiz`）。
+class _CapsuleThreeDots extends StatelessWidget {
+  const _CapsuleThreeDots({required this.color});
+
+  final Color color;
+
+  static const double _dot = 4.8;
+  static const double _gap = 3.8;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = 0; i < 3; i++) ...[
+          if (i > 0) const SizedBox(width: _gap),
+          Container(
+            width: _dot,
+            height: _dot,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -115,12 +142,12 @@ class _WeChatTargetPainter extends CustomPainter {
     final outer = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
+      ..strokeWidth = 2.2;
     final inner = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, size.width * 0.36, outer);
-    canvas.drawCircle(center, size.width * 0.11, inner);
+    canvas.drawCircle(center, size.width * 0.12, inner);
   }
 
   @override

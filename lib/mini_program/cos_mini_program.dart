@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'cos_mini_program_nav_bar_inset_mode.dart';
 import 'mini_program_material_icons.dart';
 
 /// 小程序 WebView 认证策略（见 `docs/cos-mini-program-token-auth-plan.md`）。
@@ -27,6 +28,7 @@ class CosMiniProgram {
     this.serverDocName,
     this.programEnabled = true,
     this.userPinnedOnLauncher = false,
+    this.navBarInsetMode = CosMiniProgramNavBarInsetMode.appProvided,
   }) : materialIcon = icon;
 
   final String id;
@@ -42,7 +44,7 @@ class CosMiniProgram {
   final String title;
   final String? subtitle;
 
-  /// 以 `/` 开头的站点内路径，如 `/worker-portal/...`。
+  /// 以 `/` 开头的站内路径，如 `/worker-portal/...`。
   final String launchPath;
 
   /// Material 图标（与 `icon_key` 或代码内注册对应）。
@@ -55,6 +57,9 @@ class CosMiniProgram {
 
   /// 默认 [CosMiniProgramAuthKind.frappeSession]；`/worker-portal/*` 应使用 [CosMiniProgramAuthKind.workerPortalToken]。
   final CosMiniProgramAuthKind authKind;
+
+  /// 壳内 H5 顶栏占位策略（与 DocType `nav_bar_inset_mode` 一致）。
+  final CosMiniProgramNavBarInsetMode navBarInsetMode;
 
   /// 解析后的可加载 URL；相对路径基于 [siteOrigin]。
   String? resolvedIconUrl(Uri siteOrigin) {
@@ -137,6 +142,7 @@ class CosMiniProgram {
       serverDocName: docRaw.isEmpty ? null : docRaw,
       programEnabled: _parseProgramEnabled(m),
       userPinnedOnLauncher: _parseUserPinned(m),
+      navBarInsetMode: parseNavBarInsetMode(m['nav_bar_inset_mode']?.toString()),
     );
   }
 }

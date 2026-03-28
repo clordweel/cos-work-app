@@ -33,6 +33,9 @@ abstract final class CosFrappeApiMethods {
       'cos.company_context_api.get_session_company';
   static const String setDefaultCompany =
       'cos.company_context_api.set_default_company';
+  /// 原生壳 POST 前 GET，取与当前会话一致的 CSRF（见 `company_context_api.get_csrf_token_for_native_shell`）。
+  static const String getCsrfTokenForNativeShell =
+      'cos.company_context_api.get_csrf_token_for_native_shell';
 
   // —— COS 工作台小程序启动器 ——
   static const String getLauncherPrograms =
