@@ -3,7 +3,7 @@
 /// 服务端实现参考：
 /// - `cos/work_app_launcher_api.py`（小程序宫格 / 市场 / 用户自选）
 /// - `cos.company_context_api`（公司上下文）
-/// - `cos.worker_portal_api.login_for_token`（Worker Portal `wpt.` token）
+/// - `cos.worker_portal_api.login_for_token` / `issue_token_from_session`（Worker Portal `wpt.`）
 ///
 /// 变更后端方法名时须同步此处与集成测试场景。
 abstract final class CosFrappeApiMethods {
@@ -23,6 +23,8 @@ abstract final class CosFrappeApiMethods {
   // —— COS Worker Portal ——
   static const String workerPortalLoginForToken =
       'cos.worker_portal_api.login_for_token';
+  static const String issueWorkerPortalTokenFromSession =
+      'cos.worker_portal_api.issue_token_from_session';
 
   // —— COS 公司上下文 ——
   static const String listAccessibleCompanies =

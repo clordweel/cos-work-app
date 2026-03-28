@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_brand.dart';
+import '../config/cos_frappe_api_methods.dart';
 import '../config/cos_site_store.dart';
 import 'cos_web_cookie_sync.dart';
 import 'cos_biometric_gate.dart';
@@ -111,6 +112,7 @@ class CosAuthService extends ChangeNotifier {
         !_biometricGateEnabled || !await CosBiometricGate.hasEnrolledBiometrics();
     _bootstrapDone = true;
     notifyListeners();
+    await ensureWorkerPortalTokenFresh();
     await CosCompanyContext.instance.refreshFromServer();
     unawaited(CosMiniProgramCatalog.instance.refreshFromServer());
   }
@@ -321,6 +323,53 @@ class CosAuthService extends ChangeNotifier {
 
   /// Worker Portal 用的 `wpt.` token（无则 Portal 会走自带登录页）。
   Future<String?> readWorkerPortalToken() => _secure.read(key: _kSecureWorkerPortalToken);
+
+  Future<List<Cookie>> _persistedSessionCookies() async {
+    if (!CosSiteStore.instance.isInitialized) return [];
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(CosSessionKeys.frappeWebCookiesJson);
+    final sid = await _secure.read(key: CosSessionKeys.frappeSid);
+    final host = CosSiteStore.instance.origin.host;
+    return FrappeNativeSession.cookiesFromPersistedJson(
+      frappeCookiesJson: raw,
+      host: host,
+      sidValue: sid,
+    );
+  }
+
+  /// 使用当前 Frappe 会话（sid + Cookie 快照）向站点索取或刷新 Worker Portal `wpt.` token。
+  ///
+  /// 解决：冷启动仅恢复 sid、旧 wpt 过期、或从未成功写入 wpt 时，WebView 内 Portal 无法鉴权。
+  Future<void> ensureWorkerPortalTokenFresh() async {
+    if (!CosSiteStore.instance.isInitialized) return;
+    if (!_loggedIn) return;
+    final origin = CosSiteStore.instance.origin;
+    final cookies = await _persistedSessionCookies();
+    if (cookies.isEmpty) {
+      if (kDebugMode) {
+        debugPrint('ensureWorkerPortalTokenFresh: 无可用会话 Cookie，跳过');
+      }
+      return;
+    }
+    final res = await FrappeNativeSession.callMethodGet(
+      siteOrigin: origin,
+      cookies: cookies,
+      dottedMethod: CosFrappeApiMethods.issueWorkerPortalTokenFromSession,
+    );
+    if (!res.ok) {
+      if (kDebugMode) {
+        debugPrint('ensureWorkerPortalTokenFresh: ${res.errorText}');
+      }
+      return;
+    }
+    final msg = res.message;
+    if (msg is Map) {
+      final t = msg['token'];
+      if (t is String && t.startsWith('wpt.')) {
+        await _secure.write(key: _kSecureWorkerPortalToken, value: t);
+      }
+    }
+  }
 
   /// 打开任意 Frappe WebView 前调用：按上次登录快照重灌 Cookie，并对 [primePageUrl] 二次 setCookie，
   /// 减少首跳仍无 sid 的概率。

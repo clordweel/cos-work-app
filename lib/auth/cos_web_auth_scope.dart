@@ -11,8 +11,9 @@ import 'package:webview_flutter/webview_flutter.dart';
 ///   [MethodChannel]，Cookie 属性串用 [Cookie.toString] 与服务端一致）；[CosAuthService] 会
 ///   持久化 Cookie 快照，并在打开小程序 WebView **首跳前**再次 [CosAuthService.ensureWebViewCookiesBeforeBrowse]。
 /// - Worker Portal（`worker_portal_token`）：**勿用** `loadHtmlString` 写 `localStorage`（与真实站点
-///   不同源）；由 [WorkerPortalTokenBootstrap.uriWithEmbeddedToken] 经 URL hash 在同源首屏写入
-///   token（与站点 `main.tsx` 一致），且 WebView User-Agent 含 `CosWorkApp` 供前端识别壳环境。
+///   不同源）。壳在打开前调用 [CosAuthService.ensureWorkerPortalTokenFresh] 换发 `wpt.`，首屏
+///   [MiniProgramRunnerScreen] 再用 `runJavaScript` 写入 `localStorage`（必要时 `reload` 一次）；
+///   WebView User-Agent 含 `CosWorkApp` 供前端识别壳环境。
 ///
 /// **后续若出现以下情况，再升级此模块**
 /// - 小程序改为 **不同子域**（如 `a.junhai.work` 与 `b.junhai.work`）→ 需 Cookie 同步、
