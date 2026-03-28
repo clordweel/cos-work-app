@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../mini_program/cos_mini_program.dart';
 import '../screens/mini_program_market_screen.dart';
 import '../screens/mini_program_runner_screen.dart';
+import '../screens/shell_network_debug_screen.dart';
 import 'app_routes.dart';
+import 'mini_program_registry.dart';
 
 /// 应用内导航集中入口：原生页走命名路由，Alpha 小程序统一走 WebView 容器。
 abstract final class CosNavigation {
@@ -11,6 +13,14 @@ abstract final class CosNavigation {
     if (!program.programEnabled) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(content: Text('该小程序已由管理员停用，暂不可打开。')),
+      );
+      return;
+    }
+    if (program.id == MiniProgramRegistry.shellNetworkDebug.id) {
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => const ShellNetworkDebugScreen(),
+        ),
       );
       return;
     }

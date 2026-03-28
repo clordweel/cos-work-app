@@ -44,12 +44,24 @@ abstract final class MiniProgramRegistry {
     authKind: CosMiniProgramAuthKind.frappeSession,
   );
 
+  /// 壳内调试：网络与会话（不加载 WebView，见 [CosNavigation.openMiniProgram]）。
+  static final CosMiniProgram shellNetworkDebug = CosMiniProgram(
+    id: 'shell_network_debug',
+    title: '调试·网络认证',
+    subtitle: '站点 / sid / wpt / RPC',
+    launchPath: '/__shell_debug__',
+    icon: Icons.bug_report_outlined,
+    accentColor: const Color(0xFF6D4C41),
+    authKind: CosMiniProgramAuthKind.frappeSession,
+  );
+
   /// 首页宫格（不含登录；登录由原生页完成）。
   static final List<CosMiniProgram> forLauncherGrid = [
     piReimbursementPending,
     piReimbursementApproval,
     stockReconciliation,
     deskHome,
+    shellNetworkDebug,
   ];
 
   static CosMiniProgram? tryFindById(String id) {
