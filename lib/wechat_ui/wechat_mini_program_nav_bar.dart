@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 import 'wechat_mini_program_capsule.dart';
 
 /// 仿微信小程序顶部栏：左返回（有栈时）、居中标题、右胶囊。
@@ -24,9 +24,10 @@ class WeChatMiniProgramNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     final top = MediaQuery.paddingOf(context).top;
     return Container(
-      color: WeChatMiniUiColors.navBarBackground,
+      color: shell.navBarBackground,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -37,17 +38,19 @@ class WeChatMiniProgramNavBar extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 96),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: shell.navBarTitleHorizontalPadding,
+                  ),
                   child: Text(
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w500,
                       height: 1.2,
-                      color: WeChatMiniUiColors.titleText,
+                      color: shell.titleText,
                     ),
                   ),
                 ),
@@ -62,11 +65,11 @@ class WeChatMiniProgramNavBar extends StatelessWidget {
                               color: Colors.transparent,
                               child: InkWell(
                                 onTap: onBack,
-                                child: const Center(
+                                child: Center(
                                   child: Icon(
                                     Icons.arrow_back_ios_new_rounded,
                                     size: 18,
-                                    color: WeChatMiniUiColors.capsuleIcon,
+                                    color: shell.capsuleIcon,
                                   ),
                                 ),
                               ),
@@ -75,7 +78,7 @@ class WeChatMiniProgramNavBar extends StatelessWidget {
                     ),
                     const Spacer(),
                     Padding(
-                      padding: const EdgeInsets.only(right: 7),
+                      padding: EdgeInsets.only(right: shell.capsuleRightMargin),
                       child: WeChatMiniProgramCapsule(
                         onMore: onCapsuleMore,
                         onClose: onCapsuleClose,
@@ -86,7 +89,7 @@ class WeChatMiniProgramNavBar extends StatelessWidget {
               ],
             ),
           ),
-          Container(height: 0.5, color: WeChatMiniUiColors.hairline),
+          Container(height: 0.5, color: shell.hairline),
         ],
       ),
     );

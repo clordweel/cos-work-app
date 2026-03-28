@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../auth/cos_auth_service.dart';
 import '../config/app_brand.dart';
-import '../wechat_ui/wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 
 /// 冷启动：已恢复会话且开启生物识别时，先在此页验证机主身份。
 class BiometricGateScreen extends StatefulWidget {
@@ -41,8 +41,9 @@ class _BiometricGateScreenState extends State<BiometricGateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Scaffold(
-      backgroundColor: WeChatMiniUiColors.pageBackground,
+      backgroundColor: shell.pageBackground,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -52,7 +53,7 @@ class _BiometricGateScreenState extends State<BiometricGateScreen> {
               Icon(
                 Icons.fingerprint_rounded,
                 size: 72,
-                color: WeChatMiniUiColors.brandGreen,
+                color: shell.brandGreen,
               ),
               const SizedBox(height: 20),
               Text(
@@ -60,7 +61,7 @@ class _BiometricGateScreenState extends State<BiometricGateScreen> {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: WeChatMiniUiColors.titleText,
+                      color: shell.titleText,
                     ),
               ),
               const SizedBox(height: 12),
@@ -70,7 +71,7 @@ class _BiometricGateScreenState extends State<BiometricGateScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.45,
-                  color: WeChatMiniUiColors.secondaryText,
+                  color: shell.secondaryText,
                 ),
               ),
               if (_hint != null) ...[
@@ -89,7 +90,7 @@ class _BiometricGateScreenState extends State<BiometricGateScreen> {
                 onPressed: _busy ? null : _unlock,
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
-                  backgroundColor: WeChatMiniUiColors.brandGreen,
+                  backgroundColor: shell.brandGreen,
                 ),
                 child: _busy
                     ? const SizedBox(

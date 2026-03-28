@@ -4,7 +4,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../auth/cos_auth_service.dart';
 import '../auth/cos_login_history_store.dart';
-import '../wechat_ui/wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 
 /// 历史登录列表：分组展示，点选回填登录页；左滑删除。
 ///
@@ -127,6 +127,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) {
+        final sheetShell = ctx.cosShell;
         return Padding(
           padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomSafe),
           child: DecoratedBox(
@@ -151,7 +152,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 18),
                     decoration: BoxDecoration(
-                      color: WeChatMiniUiColors.hairline,
+                      color: sheetShell.hairline,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -174,7 +175,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: WeChatMiniUiColors.titleText,
+                      color: sheetShell.titleText,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -184,7 +185,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       height: 1.45,
-                      color: WeChatMiniUiColors.secondaryText,
+                      color: sheetShell.secondaryText,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -194,7 +195,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       height: 1.35,
-                      color: WeChatMiniUiColors.secondaryText
+                      color: sheetShell.secondaryText
                           .withValues(alpha: 0.85),
                     ),
                   ),
@@ -206,9 +207,9 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                           onPressed: () => Navigator.pop(ctx, false),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            foregroundColor: WeChatMiniUiColors.titleText,
+                            foregroundColor: sheetShell.titleText,
                             side: BorderSide(
-                              color: WeChatMiniUiColors.hairline,
+                              color: sheetShell.hairline,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -262,12 +263,13 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Scaffold(
-      backgroundColor: WeChatMiniUiColors.pageBackground,
+      backgroundColor: shell.pageBackground,
       appBar: AppBar(
         title: const Text('历史登录'),
-        backgroundColor: WeChatMiniUiColors.navBarBackground,
-        foregroundColor: WeChatMiniUiColors.titleText,
+        backgroundColor: shell.navBarBackground,
+        foregroundColor: shell.titleText,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         actions: [
@@ -277,7 +279,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
               child: Text(
                 '仅登出',
                 style: TextStyle(
-                  color: WeChatMiniUiColors.titleText.withValues(alpha: 0.85),
+                  color: shell.titleText.withValues(alpha: 0.85),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -287,7 +289,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
           preferredSize: const Size.fromHeight(0.5),
           child: Container(
             height: 0.5,
-            color: WeChatMiniUiColors.hairline,
+            color: shell.hairline,
           ),
         ),
       ),
@@ -296,6 +298,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
   }
 
   Widget _buildBody() {
+    final shell = context.cosShell;
     if (_loadError != null) {
       return Center(
         child: Padding(
@@ -303,7 +306,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
           child: Text(
             _loadError!,
             textAlign: TextAlign.center,
-            style: TextStyle(color: WeChatMiniUiColors.secondaryText),
+            style: TextStyle(color: shell.secondaryText),
           ),
         ),
       );
@@ -322,7 +325,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                 Icons.history_rounded,
                 size: 56,
                 color:
-                    WeChatMiniUiColors.secondaryText.withValues(alpha: 0.45),
+                    shell.secondaryText.withValues(alpha: 0.45),
               ),
               const SizedBox(height: 16),
               Text(
@@ -330,7 +333,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
-                  color: WeChatMiniUiColors.titleText,
+                  color: shell.titleText,
                 ),
               ),
               const SizedBox(height: 8),
@@ -340,7 +343,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.4,
-                  color: WeChatMiniUiColors.secondaryText,
+                  color: shell.secondaryText,
                 ),
               ),
             ],
@@ -363,7 +366,7 @@ class _LoginHistoryScreenState extends State<LoginHistoryScreen> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: WeChatMiniUiColors.secondaryText,
+                  color: shell.secondaryText,
                 ),
               ),
             ),
@@ -406,6 +409,7 @@ class _HistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Slidable(
       key: key,
       endActionPane: ActionPane(
@@ -453,10 +457,10 @@ class _HistoryCard extends StatelessWidget {
                         entry.displayName ?? entry.username,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: WeChatMiniUiColors.titleText,
+                          color: shell.titleText,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -466,7 +470,7 @@ class _HistoryCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13,
-                          color: WeChatMiniUiColors.secondaryText,
+                          color: shell.secondaryText,
                         ),
                       ),
                     ],

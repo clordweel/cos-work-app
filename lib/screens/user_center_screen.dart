@@ -7,7 +7,7 @@ import '../routing/app_routes.dart';
 import 'login_history_screen.dart';
 import '../routing/cos_navigation.dart';
 import '../routing/mini_program_registry.dart';
-import '../wechat_ui/wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 
 /// 用户中心：公司、个人信息、工作台与账号。
 class UserCenterScreen extends StatelessWidget {
@@ -42,6 +42,7 @@ class UserCenterScreen extends StatelessWidget {
       context: context,
       showDragHandle: true,
       builder: (sheetCtx) {
+        final sheetShell = sheetCtx.cosShell;
         return SafeArea(
           child: ListView(
             shrinkWrap: true,
@@ -58,7 +59,7 @@ class UserCenterScreen extends StatelessWidget {
                   title: Text(row.displayLabel),
                   subtitle: Text(row.name, style: const TextStyle(fontSize: 12)),
                   trailing: row.name == ctx.activeName
-                      ? Icon(Icons.check_circle, color: WeChatMiniUiColors.brandGreen)
+                      ? Icon(Icons.check_circle, color: sheetShell.brandGreen)
                       : null,
                   onTap: () => Navigator.pop(sheetCtx, row.name),
                 ),
@@ -90,17 +91,18 @@ class UserCenterScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Scaffold(
-      backgroundColor: WeChatMiniUiColors.pageBackground,
+      backgroundColor: shell.pageBackground,
       appBar: AppBar(
         title: const Text('用户中心'),
-        backgroundColor: WeChatMiniUiColors.navBarBackground,
-        foregroundColor: WeChatMiniUiColors.titleText,
+        backgroundColor: shell.navBarBackground,
+        foregroundColor: shell.titleText,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: WeChatMiniUiColors.hairline),
+          child: Container(height: 0.5, color: shell.hairline),
         ),
       ),
       body: ListenableBuilder(
@@ -214,10 +216,11 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Material(
-        color: WeChatMiniUiColors.navBarBackground,
+        color: shell.navBarBackground,
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -228,11 +231,11 @@ class _ProfileCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: WeChatMiniUiColors.pageBackground,
+                  backgroundColor: shell.pageBackground,
                   child: Icon(
                     Icons.person_rounded,
                     size: 32,
-                    color: WeChatMiniUiColors.secondaryText,
+                    color: shell.secondaryText,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -242,10 +245,10 @@ class _ProfileCard extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
-                          color: WeChatMiniUiColors.titleText,
+                          color: shell.titleText,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -253,7 +256,7 @@ class _ProfileCard extends StatelessWidget {
                         subtitle,
                         style: TextStyle(
                           fontSize: 13,
-                          color: WeChatMiniUiColors.secondaryText,
+                          color: shell.secondaryText,
                         ),
                       ),
                     ],
@@ -261,7 +264,7 @@ class _ProfileCard extends StatelessWidget {
                 ),
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: WeChatMiniUiColors.secondaryText,
+                  color: shell.secondaryText,
                 ),
               ],
             ),
@@ -279,6 +282,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Text(
@@ -286,7 +290,7 @@ class _SectionTitle extends StatelessWidget {
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
-          color: WeChatMiniUiColors.secondaryText,
+          color: shell.secondaryText,
         ),
       ),
     );
@@ -308,33 +312,34 @@ class _NativeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Material(
-        color: WeChatMiniUiColors.navBarBackground,
+        color: shell.navBarBackground,
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: ListTile(
-          leading: Icon(icon, color: WeChatMiniUiColors.capsuleIcon),
+          leading: Icon(icon, color: shell.capsuleIcon),
           title: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
-              color: WeChatMiniUiColors.titleText,
+              color: shell.titleText,
             ),
           ),
           subtitle: Text(
             subtitle,
             style: TextStyle(
               fontSize: 13,
-              color: WeChatMiniUiColors.secondaryText.withValues(alpha: 0.95),
+              color: shell.secondaryText.withValues(alpha: 0.95),
             ),
           ),
           trailing: onTap != null
               ? Icon(
                   Icons.chevron_right_rounded,
-                  color: WeChatMiniUiColors.secondaryText,
+                  color: shell.secondaryText,
                 )
               : null,
           onTap: onTap,

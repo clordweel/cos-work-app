@@ -7,7 +7,7 @@ import '../auth/cos_web_cookie_sync.dart';
 import '../config/cos_site_store.dart';
 import '../mini_program/cos_mini_program.dart';
 import '../mini_program/worker_portal_token_bootstrap.dart';
-import '../wechat_ui/wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 import '../wechat_ui/wechat_mini_program_nav_bar.dart';
 
 /// 单个小程序运行容器：顶部 UI 按微信小程序（标题居中 + 右胶囊 + 左栈返回）。
@@ -177,12 +177,12 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
                   ),
                 const Divider(height: 1),
                 ListTile(
-                  title: const Text(
+                  title: Text(
                     '取消',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 17,
-                      color: WeChatMiniUiColors.brandGreen,
+                      color: sheetContext.cosShell.brandGreen,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -199,6 +199,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, Object? result) {
@@ -206,7 +207,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
         _onBackOrSystemPop();
       },
       child: Scaffold(
-        backgroundColor: WeChatMiniUiColors.navBarBackground,
+        backgroundColor: shell.navBarBackground,
         body: Column(
           children: [
             WeChatMiniProgramNavBar(
@@ -220,8 +221,8 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
               LinearProgressIndicator(
                 minHeight: 2,
                 value: _loadProgress <= 0 ? null : _loadProgress,
-                backgroundColor: WeChatMiniUiColors.pageBackground,
-                color: WeChatMiniUiColors.brandGreen,
+                backgroundColor: shell.pageBackground,
+                color: shell.brandGreen,
               ),
             if (_loadError != null)
               Material(
@@ -260,7 +261,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
               ),
             Expanded(
               child: ColoredBox(
-                color: WeChatMiniUiColors.navBarBackground,
+                color: shell.navBarBackground,
                 child: WebViewWidget(controller: _controller),
               ),
             ),

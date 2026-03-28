@@ -5,7 +5,7 @@ import '../auth/cos_auth_service.dart';
 import '../auth/cos_login_history_store.dart';
 import '../config/cos_site_config.dart';
 import '../config/cos_site_store.dart';
-import '../wechat_ui/wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 import '../routing/app_routes.dart';
 
 /// 账号密码登录（原生请求，不内嵌网页登录页）。
@@ -113,8 +113,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Scaffold(
-      backgroundColor: WeChatMiniUiColors.pageBackground,
+      backgroundColor: shell.pageBackground,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
@@ -125,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: WeChatMiniUiColors.titleText,
+                    color: shell.titleText,
                   ),
             ),
             const SizedBox(height: 8),
@@ -134,15 +135,16 @@ class _LoginScreenState extends State<LoginScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,
-                color: WeChatMiniUiColors.secondaryText,
+                color: shell.secondaryText,
               ),
             ),
             const SizedBox(height: 28),
             ListenableBuilder(
               listenable: CosSiteStore.instance,
               builder: (context, _) {
+                final tileShell = context.cosShell;
                 return Material(
-                  color: WeChatMiniUiColors.navBarBackground,
+                  color: tileShell.navBarBackground,
                   borderRadius: BorderRadius.circular(12),
                   child: ListTile(
                     title: const Text('服务器地址'),
@@ -159,11 +161,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           icon: const Icon(Icons.history_rounded),
                           tooltip: '历史登录',
                           onPressed: _openLoginHistory,
-                          color: WeChatMiniUiColors.secondaryText,
+                          color: tileShell.secondaryText,
                         ),
                         Icon(
                           Icons.chevron_right_rounded,
-                          color: WeChatMiniUiColors.secondaryText
+                          color: tileShell.secondaryText
                               .withValues(alpha: 0.65),
                         ),
                       ],
@@ -219,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: _submitting ? null : _submit,
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                backgroundColor: WeChatMiniUiColors.brandGreen,
+                backgroundColor: shell.brandGreen,
               ),
               child: _submitting
                   ? const SizedBox(
@@ -238,7 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
               style: TextStyle(
                 fontSize: 12,
                 height: 1.4,
-                color: WeChatMiniUiColors.secondaryText.withValues(alpha: 0.9),
+                color: shell.secondaryText.withValues(alpha: 0.9),
               ),
             ),
           ],

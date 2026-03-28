@@ -5,7 +5,7 @@ import '../config/cos_site_store.dart';
 import '../mini_program/cos_market_program.dart';
 import '../mini_program/cos_mini_program_catalog.dart';
 import '../routing/cos_navigation.dart';
-import '../wechat_ui/wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 
 /// 应用市场：展示 prod 中「在市场展示」的小程序，支持自选添加/移除。
 class MiniProgramMarketScreen extends StatefulWidget {
@@ -37,17 +37,18 @@ class _MiniProgramMarketScreenState extends State<MiniProgramMarketScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Scaffold(
-      backgroundColor: WeChatMiniUiColors.pageBackground,
+      backgroundColor: shell.pageBackground,
       appBar: AppBar(
         title: const Text('应用市场'),
-        backgroundColor: WeChatMiniUiColors.navBarBackground,
-        foregroundColor: WeChatMiniUiColors.titleText,
+        backgroundColor: shell.navBarBackground,
+        foregroundColor: shell.titleText,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: WeChatMiniUiColors.hairline),
+          child: Container(height: 0.5, color: shell.hairline),
         ),
       ),
       body: RefreshIndicator(
@@ -58,6 +59,7 @@ class _MiniProgramMarketScreenState extends State<MiniProgramMarketScreen> {
             CosSiteStore.instance,
           ]),
           builder: (context, _) {
+            final listShell = context.cosShell;
             final cat = CosMiniProgramCatalog.instance;
             final origin = CosSiteStore.instance.isInitialized
                 ? CosSiteStore.instance.origin
@@ -75,7 +77,7 @@ class _MiniProgramMarketScreenState extends State<MiniProgramMarketScreen> {
                   Text(
                     cat.marketLastError!,
                     style: TextStyle(
-                      color: WeChatMiniUiColors.secondaryText,
+                      color: listShell.secondaryText,
                       height: 1.4,
                     ),
                   ),
@@ -101,7 +103,7 @@ class _MiniProgramMarketScreenState extends State<MiniProgramMarketScreen> {
                       style: TextStyle(
                         fontSize: 14,
                         height: 1.45,
-                        color: WeChatMiniUiColors.secondaryText,
+                        color: listShell.secondaryText,
                       ),
                     ),
                   ),
@@ -228,6 +230,7 @@ class _MarketProgramCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     final p = row.program;
     final Color bg = p.accentColor ?? const Color(0xFF576B95);
     const Color fg = Colors.white;
@@ -298,10 +301,10 @@ class _MarketProgramCard extends StatelessWidget {
                       p.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: WeChatMiniUiColors.titleText,
+                        color: shell.titleText,
                       ),
                     ),
                     if ((p.subtitle ?? '').isNotEmpty) ...[
@@ -313,7 +316,7 @@ class _MarketProgramCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.3,
-                          color: WeChatMiniUiColors.secondaryText,
+                          color: shell.secondaryText,
                         ),
                       ),
                     ],
@@ -322,8 +325,7 @@ class _MarketProgramCard extends StatelessWidget {
                       statusLine,
                       style: TextStyle(
                         fontSize: 12,
-                        color: WeChatMiniUiColors.secondaryText
-                            .withValues(alpha: 0.9),
+                        color: shell.secondaryText.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -339,7 +341,7 @@ class _MarketProgramCard extends StatelessWidget {
                           height: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: WeChatMiniUiColors.secondaryText,
+                            color: shell.secondaryText,
                           ),
                         ),
                       )
@@ -367,7 +369,7 @@ class _MarketProgramCard extends StatelessWidget {
                               '—',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: WeChatMiniUiColors.secondaryText,
+                                color: shell.secondaryText,
                               ),
                             ),
                         ],

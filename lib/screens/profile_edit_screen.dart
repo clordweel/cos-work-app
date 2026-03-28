@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../auth/cos_auth_service.dart';
-import '../wechat_ui/wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 
 /// 编辑在本应用内展示的个人信息。
 class ProfileEditScreen extends StatefulWidget {
@@ -45,13 +45,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     final auth = CosAuthService.instance;
     return Scaffold(
-      backgroundColor: WeChatMiniUiColors.pageBackground,
+      backgroundColor: shell.pageBackground,
       appBar: AppBar(
         title: const Text('个人信息'),
-        backgroundColor: WeChatMiniUiColors.navBarBackground,
-        foregroundColor: WeChatMiniUiColors.titleText,
+        backgroundColor: shell.navBarBackground,
+        foregroundColor: shell.titleText,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         actions: [
@@ -62,7 +63,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: WeChatMiniUiColors.hairline),
+          child: Container(height: 0.5, color: shell.hairline),
         ),
       ),
       body: ListView(
@@ -70,7 +71,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         children: [
           _SectionTitle(title: '账号信息'),
           Material(
-            color: WeChatMiniUiColors.navBarBackground,
+            color: shell.navBarBackground,
             borderRadius: BorderRadius.circular(12),
             child: ListTile(
               title: const Text('登录用户'),
@@ -83,7 +84,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           if (auth.fullName != null) ...[
             const SizedBox(height: 8),
             Material(
-              color: WeChatMiniUiColors.navBarBackground,
+              color: shell.navBarBackground,
               borderRadius: BorderRadius.circular(12),
               child: ListTile(
                 title: const Text('姓名'),
@@ -122,7 +123,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             '以上内容仅保存在本设备。',
             style: TextStyle(
               fontSize: 12,
-              color: WeChatMiniUiColors.secondaryText.withValues(alpha: 0.9),
+              color: shell.secondaryText.withValues(alpha: 0.9),
             ),
           ),
         ],
@@ -138,6 +139,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
@@ -145,7 +147,7 @@ class _SectionTitle extends StatelessWidget {
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
-          color: WeChatMiniUiColors.secondaryText,
+          color: shell.secondaryText,
         ),
       ),
     );

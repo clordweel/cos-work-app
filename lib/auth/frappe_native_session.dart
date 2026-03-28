@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'cos_auth_service.dart';
 
 /// 冷启动校验 sid 时的结论（避免把「网络抖动」当成「已登出」并清空本地会话）。
@@ -79,13 +81,53 @@ class FrappeRpcResult {
 
 /// 使用 [HttpClient] 调用 Frappe 登录/会话接口（不经过 WebView）。
 abstract final class FrappeNativeSession {
+  static HttpClient _newHttpClient() {
+    final c = HttpClient();
+    c.findProxy = HttpClient.findProxyFromEnvironment;
+    return c;
+  }
+
+  /// Windows 等平台下 [HttpClientResponse.cookies] 偶发未填入 `sid`，改从原始 Set-Cookie 补全。
+  static List<Cookie> _collectCookies(HttpClientResponse res, String host) {
+    final byName = <String, Cookie>{};
+    for (final c in res.cookies) {
+      byName[c.name] = c;
+    }
+    res.headers.forEach((name, values) {
+      if (name.toLowerCase() != 'set-cookie') return;
+      for (final line in values) {
+        final parsed = _parseSetCookieNameValue(line, host);
+        if (parsed != null) {
+          byName[parsed.name] = parsed;
+        }
+      }
+    });
+    return byName.values.toList();
+  }
+
+  /// 只解析 `name=value` 段（分号前），供会话 Cookie 使用。
+  static Cookie? _parseSetCookieNameValue(String line, String host) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) return null;
+    final sc = trimmed.indexOf(';');
+    final nv = sc >= 0 ? trimmed.substring(0, sc).trim() : trimmed;
+    final eq = nv.indexOf('=');
+    if (eq <= 0) return null;
+    final name = nv.substring(0, eq).trim();
+    final value = nv.substring(eq + 1).trim();
+    if (name.isEmpty) return null;
+    return Cookie(name, value)
+      ..domain = host
+      ..path = '/';
+  }
+
   static Future<FrappeLoginOutcome> login({
     required Uri siteOrigin,
     required String usr,
     required String pwd,
   }) async {
     final uri = siteOrigin.replace(path: '/api/method/login');
-    final client = HttpClient();
+    final client = _newHttpClient();
     try {
       final req = await client.postUrl(uri);
       req.headers.contentType = ContentType('application', 'json', charset: 'utf-8');
@@ -105,9 +147,15 @@ abstract final class FrappeNativeSession {
         return FrappeLoginOutcome.fail(_formatError(map, text));
       }
 
-      final cookies = res.cookies;
+      final cookies = _collectCookies(res, siteOrigin.host);
       final hasSid = cookies.any((c) => c.name == 'sid');
       if (!hasSid) {
+        if (kDebugMode) {
+          debugPrint(
+            'login: 响应无 sid；cookies=${cookies.map((c) => c.name).join(",")} '
+            'status=${res.statusCode}',
+          );
+        }
         return FrappeLoginOutcome.fail('无法完成登录，请检查服务器地址与网络。');
       }
       return FrappeLoginOutcome.ok(cookies: cookies, rawJson: map);
@@ -125,7 +173,7 @@ abstract final class FrappeNativeSession {
     required List<Cookie> cookies,
   }) async {
     final uri = siteOrigin.replace(path: '/api/method/frappe.auth.get_logged_user');
-    final client = HttpClient();
+    final client = _newHttpClient();
     try {
       final req = await client.getUrl(uri);
       _attachCookies(req, siteOrigin.host, cookies);
@@ -154,7 +202,7 @@ abstract final class FrappeNativeSession {
     required String sidValue,
   }) async {
     final uri = siteOrigin.replace(path: '/api/method/frappe.auth.get_logged_user');
-    final client = HttpClient();
+    final client = _newHttpClient();
     try {
       final req = await client.getUrl(uri);
       _attachCookies(req, siteOrigin.host, [
@@ -226,7 +274,7 @@ abstract final class FrappeNativeSession {
     required String pwd,
   }) async {
     final uri = siteOrigin.replace(path: '/api/method/cos.worker_portal_api.login_for_token');
-    final client = HttpClient();
+    final client = _newHttpClient();
     try {
       final req = await client.postUrl(uri);
       req.headers.contentType = ContentType('application', 'json', charset: 'utf-8');
@@ -267,7 +315,7 @@ abstract final class FrappeNativeSession {
     required String sidValue,
   }) async {
     final uri = siteOrigin.replace(path: '/api/method/logout');
-    final client = HttpClient();
+    final client = _newHttpClient();
     try {
       final req = await client.postUrl(uri);
       req.headers.contentType = ContentType('application', 'json', charset: 'utf-8');
@@ -345,7 +393,7 @@ abstract final class FrappeNativeSession {
     required String dottedMethod,
   }) async {
     final uri = siteOrigin.replace(path: '/api/method/$dottedMethod');
-    final client = HttpClient();
+    final client = _newHttpClient();
     try {
       final req = await client.getUrl(uri);
       _attachCookies(req, siteOrigin.host, cookies);
@@ -372,7 +420,7 @@ abstract final class FrappeNativeSession {
     required Map<String, String> fields,
   }) async {
     final uri = siteOrigin.replace(path: '/api/method/$dottedMethod');
-    final client = HttpClient();
+    final client = _newHttpClient();
     try {
       final req = await client.postUrl(uri);
       req.headers.contentType = ContentType('application', 'x-www-form-urlencoded', charset: 'utf-8');

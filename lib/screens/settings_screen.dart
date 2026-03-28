@@ -7,7 +7,7 @@ import '../auth/cos_auth_service.dart';
 import '../auth/cos_biometric_gate.dart';
 import '../config/cos_site_config.dart';
 import '../config/cos_site_store.dart';
-import '../wechat_ui/wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 
 /// 设置：服务器地址、安全与关于。
 class SettingsScreen extends StatefulWidget {
@@ -96,17 +96,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Scaffold(
-      backgroundColor: WeChatMiniUiColors.pageBackground,
+      backgroundColor: shell.pageBackground,
       appBar: AppBar(
         title: const Text('设置'),
-        backgroundColor: WeChatMiniUiColors.navBarBackground,
-        foregroundColor: WeChatMiniUiColors.titleText,
+        backgroundColor: shell.navBarBackground,
+        foregroundColor: shell.titleText,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: WeChatMiniUiColors.hairline),
+          child: Container(height: 0.5, color: shell.hairline),
         ),
       ),
       body: ListView(
@@ -116,7 +117,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Material(
-              color: WeChatMiniUiColors.navBarBackground,
+              color: shell.navBarBackground,
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
@@ -148,7 +149,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: FilledButton(
                     onPressed: _saveOrigin,
                     style: FilledButton.styleFrom(
-                      backgroundColor: WeChatMiniUiColors.brandGreen,
+                      backgroundColor: shell.brandGreen,
                     ),
                     child: const Text('保存'),
                   ),
@@ -162,7 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               '恢复默认地址（${CosSiteConfig.defaultOriginString}）',
               style: TextStyle(
                 fontSize: 13,
-                color: WeChatMiniUiColors.secondaryText,
+                color: shell.secondaryText,
               ),
             ),
           ),
@@ -173,7 +174,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(
                 fontSize: 12,
                 height: 1.35,
-                color: WeChatMiniUiColors.secondaryText.withValues(alpha: 0.9),
+                color: shell.secondaryText.withValues(alpha: 0.9),
               ),
             ),
           ),
@@ -185,7 +186,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Material(
-                  color: WeChatMiniUiColors.navBarBackground,
+                  color: shell.navBarBackground,
                   borderRadius: BorderRadius.circular(12),
                   child: ListTile(
                     title: const Text(
@@ -220,7 +221,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Material(
-                  color: WeChatMiniUiColors.navBarBackground,
+                  color: shell.navBarBackground,
                   borderRadius: BorderRadius.circular(12),
                   child: SwitchListTile(
                     title: const Text(
@@ -264,7 +265,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(
                 fontSize: 12,
                 height: 1.35,
-                color: WeChatMiniUiColors.secondaryText.withValues(alpha: 0.9),
+                color: shell.secondaryText.withValues(alpha: 0.9),
               ),
             ),
           ),
@@ -273,16 +274,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Material(
-              color: WeChatMiniUiColors.navBarBackground,
+              color: shell.navBarBackground,
               borderRadius: BorderRadius.circular(12),
-              child: const Padding(
-                padding: EdgeInsets.all(16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
                 child: Text(
                   '$kAppDisplayName 是企业内部工作台，登录后可使用工作台与各业务应用。',
                   style: TextStyle(
                     fontSize: 14,
                     height: 1.45,
-                    color: WeChatMiniUiColors.titleText,
+                    color: shell.titleText,
                   ),
                 ),
               ),
@@ -302,6 +303,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Text(
@@ -309,7 +311,7 @@ class _SectionTitle extends StatelessWidget {
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
-          color: WeChatMiniUiColors.secondaryText,
+          color: shell.secondaryText,
         ),
       ),
     );

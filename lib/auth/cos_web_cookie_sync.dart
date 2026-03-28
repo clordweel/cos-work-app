@@ -2,20 +2,16 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 /// 将 [HttpClient] 得到的 Cookie 写入系统 WebView，供小程序 WebView 继承会话。
 ///
-/// Android 使用 [MethodChannel]：`CookieManager.setCookie` 的第一个参数须为带 scheme 的 URL，
-/// 且应调用 `flush()`。Cookie 的**属性串**使用 [Cookie.toString]，以保留服务端下发的
-/// `HttpOnly` / `SameSite` / `Domain` / `Path` 等，避免手写串与 Frappe 不一致导致 WebView
-/// 不携带会话。
+/// **仅支持 Android**：通过 [MethodChannel] 调用原生 `CookieManager.setCookie`；
+/// 第一个参数须为带 scheme 的 URL，且应调用 `flush()`。Cookie 的**属性串**使用
+/// [Cookie.toString]，以保留服务端下发的 `HttpOnly` / `SameSite` / `Domain` / `Path` 等。
 abstract final class CosWebCookieSync {
   static const MethodChannel _androidCookies = MethodChannel(
     'work.junhai.cos_work_app/webview_cookies',
   );
-
-  static final WebViewCookieManager _manager = WebViewCookieManager();
 
   /// 供 `CookieManager.setCookie(url, …)` 使用的站点根 URL（须含 scheme，建议尾随 `/`）。
   static String cookieSetUrlForOrigin(Uri siteOrigin) {
@@ -42,22 +38,15 @@ abstract final class CosWebCookieSync {
     List<Cookie> cookies, {
     Uri? primeRequestUrl,
   }) async {
-    if (Platform.isAndroid) {
-      await _applyCookiesAndroid(siteOrigin, cookies, primeRequestUrl: primeRequestUrl);
+    if (!Platform.isAndroid) {
+      if (kDebugMode) {
+        debugPrint(
+          'CosWebCookieSync: 非 Android，跳过 WebView Cookie（${Platform.operatingSystem}）',
+        );
+      }
       return;
     }
-    final host = siteOrigin.host;
-    for (final c in cookies) {
-      final domain = _normalizeCookieDomain(c.domain ?? host);
-      await _manager.setCookie(
-        WebViewCookie(
-          name: c.name,
-          value: c.value,
-          domain: domain,
-          path: (c.path != null && c.path!.isNotEmpty) ? c.path! : '/',
-        ),
-      );
-    }
+    await _applyCookiesAndroid(siteOrigin, cookies, primeRequestUrl: primeRequestUrl);
   }
 
   static Future<void> _applyCookiesAndroid(
@@ -117,21 +106,13 @@ abstract final class CosWebCookieSync {
   }
 
   static Future<void> clearAll() async {
-    if (Platform.isAndroid) {
-      try {
-        await _androidCookies.invokeMethod<void>('clearAllCookies');
-      } on PlatformException catch (e, st) {
-        debugPrint('CosWebCookieSync Android clearAll failed: $e\n$st');
-      }
+    if (!Platform.isAndroid) {
       return;
     }
-    await _manager.clearCookies();
-  }
-
-  static String _normalizeCookieDomain(String d) {
-    if (d.startsWith('.')) {
-      return d.substring(1);
+    try {
+      await _androidCookies.invokeMethod<void>('clearAllCookies');
+    } on PlatformException catch (e, st) {
+      debugPrint('CosWebCookieSync Android clearAll failed: $e\n$st');
     }
-    return d;
   }
 }

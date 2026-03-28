@@ -10,7 +10,7 @@ import '../config/cos_site_store.dart';
 import '../mini_program/cos_mini_program.dart';
 import '../mini_program/cos_mini_program_catalog.dart';
 import '../routing/cos_navigation.dart';
-import '../wechat_ui/wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 
 /// 首页：应用入口宫格。
 class MiniProgramLauncherScreen extends StatefulWidget {
@@ -29,6 +29,7 @@ void _showLauncherProgramManageSheet(
     context: context,
     showDragHandle: true,
     builder: (ctx) {
+      final shell = ctx.cosShell;
       return SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -47,7 +48,7 @@ void _showLauncherProgramManageSheet(
             ListTile(
               leading: Icon(
                 Icons.storefront_outlined,
-                color: WeChatMiniUiColors.capsuleIcon,
+                color: shell.capsuleIcon,
               ),
               title: const Text('应用市场'),
               subtitle: const Text('浏览站点开放的小程序，添加后显示在首页'),
@@ -188,6 +189,7 @@ class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, Object? result) {
@@ -195,7 +197,7 @@ class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
         SystemNavigator.pop();
       },
       child: Scaffold(
-        backgroundColor: WeChatMiniUiColors.pageBackground,
+        backgroundColor: shell.pageBackground,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -215,6 +217,7 @@ class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
                     CosSiteStore.instance,
                   ]),
                   builder: (context, _) {
+                    final tileShell = context.cosShell;
                     final programs =
                         CosMiniProgramCatalog.instance.launcherPrograms;
                     final origin = CosSiteStore.instance.isInitialized
@@ -234,7 +237,7 @@ class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: WeChatMiniUiColors.secondaryText,
+                                    color: tileShell.secondaryText,
                                   ),
                                 ),
                                 const SizedBox(height: 6),
@@ -243,7 +246,7 @@ class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
                                   style: TextStyle(
                                     fontSize: 12,
                                     height: 1.35,
-                                    color: WeChatMiniUiColors.secondaryText
+                                    color: tileShell.secondaryText
                                         .withValues(alpha: 0.85),
                                   ),
                                 ),
@@ -314,7 +317,7 @@ class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
                                     children: [
                                       Icon(
                                         Icons.storefront_outlined,
-                                        color: WeChatMiniUiColors.capsuleIcon,
+                                        color: tileShell.capsuleIcon,
                                         size: 26,
                                       ),
                                       const SizedBox(width: 12),
@@ -323,13 +326,12 @@ class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            const Text(
+                                            Text(
                                               '应用市场',
                                               style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,
-                                                color: WeChatMiniUiColors
-                                                    .titleText,
+                                                color: tileShell.titleText,
                                               ),
                                             ),
                                             const SizedBox(height: 4),
@@ -338,8 +340,7 @@ class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 height: 1.35,
-                                                color: WeChatMiniUiColors
-                                                    .secondaryText
+                                                color: tileShell.secondaryText
                                                     .withValues(alpha: 0.9),
                                               ),
                                             ),
@@ -348,7 +349,7 @@ class _MiniProgramLauncherScreenState extends State<MiniProgramLauncherScreen> {
                                       ),
                                       Icon(
                                         Icons.chevron_right_rounded,
-                                        color: WeChatMiniUiColors.secondaryText
+                                        color: tileShell.secondaryText
                                             .withValues(alpha: 0.65),
                                       ),
                                     ],
@@ -383,9 +384,10 @@ class _WeChatStyleLauncherHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     final top = MediaQuery.paddingOf(context).top;
     return Container(
-      color: WeChatMiniUiColors.navBarBackground,
+      color: shell.navBarBackground,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -414,10 +416,10 @@ class _WeChatStyleLauncherHeader extends StatelessWidget {
                         children: [
                           Text(
                             kAppDisplayName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: WeChatMiniUiColors.titleText,
+                              color: shell.titleText,
                             ),
                           ),
                           if (sub != null)
@@ -427,7 +429,7 @@ class _WeChatStyleLauncherHeader extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: WeChatMiniUiColors.secondaryText
+                                color: shell.secondaryText
                                     .withValues(alpha: 0.95),
                               ),
                             ),
@@ -439,24 +441,24 @@ class _WeChatStyleLauncherHeader extends StatelessWidget {
                 IconButton(
                   tooltip: '用户中心',
                   onPressed: onUserCenter,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.person_outline_rounded,
-                    color: WeChatMiniUiColors.capsuleIcon,
+                    color: shell.capsuleIcon,
                   ),
                 ),
                 IconButton(
                   tooltip: '设置',
                   onPressed: onSettings,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.settings_outlined,
-                    color: WeChatMiniUiColors.capsuleIcon,
+                    color: shell.capsuleIcon,
                   ),
                 ),
                 const SizedBox(width: 4),
               ],
             ),
           ),
-          Container(height: 0.5, color: WeChatMiniUiColors.hairline),
+          Container(height: 0.5, color: shell.hairline),
         ],
       ),
     );
@@ -478,6 +480,7 @@ class _WeChatStylePortalTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     final Color bg = program.accentColor ?? const Color(0xFF576B95);
     const Color fg = Colors.white;
     final disabled = !program.programEnabled;
@@ -561,8 +564,8 @@ class _WeChatStylePortalTile extends StatelessWidget {
             height: 1.2,
             fontWeight: FontWeight.w400,
             color: disabled
-                ? WeChatMiniUiColors.secondaryText
-                : WeChatMiniUiColors.titleText,
+                ? shell.secondaryText
+                : shell.titleText,
           ),
         ),
       ],

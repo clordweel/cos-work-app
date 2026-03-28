@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'wechat_colors.dart';
+import '../ui/cos_shell_tokens.dart';
 
 /// 微信小程序导航栏右侧「胶囊」：··· | 分隔 | ◎（关闭回宿主）。
 class WeChatMiniProgramCapsule extends StatelessWidget {
@@ -17,14 +17,15 @@ class WeChatMiniProgramCapsule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = context.cosShell;
     return Container(
       height: height,
       constraints: const BoxConstraints(minWidth: 88),
       decoration: BoxDecoration(
-        color: WeChatMiniUiColors.navBarBackground,
+        color: shell.navBarBackground,
         borderRadius: BorderRadius.circular(height / 2),
         border: Border.all(
-          color: WeChatMiniUiColors.capsuleBorder,
+          color: shell.capsuleBorder,
           width: 0.5,
         ),
         boxShadow: [
@@ -40,20 +41,20 @@ class WeChatMiniProgramCapsule extends StatelessWidget {
         children: [
           _CapsuleHit(
             onTap: onMore,
-            child: const Icon(
+            child: Icon(
               Icons.more_horiz_rounded,
               size: 22,
-              color: WeChatMiniUiColors.capsuleIcon,
+              color: shell.capsuleIcon,
             ),
           ),
           Container(
             width: 0.5,
             height: 18,
-            color: WeChatMiniUiColors.hairline,
+            color: shell.hairline,
           ),
           _CapsuleHit(
             onTap: onClose,
-            child: const _WeChatTargetGlyph(),
+            child: _WeChatTargetGlyph(color: shell.capsuleIcon),
           ),
         ],
       ),
@@ -87,7 +88,9 @@ class _CapsuleHit extends StatelessWidget {
 
 /// 仿微信胶囊右侧「同心圆 / 靶心」图形。
 class _WeChatTargetGlyph extends StatelessWidget {
-  const _WeChatTargetGlyph();
+  const _WeChatTargetGlyph({required this.color});
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -95,27 +98,32 @@ class _WeChatTargetGlyph extends StatelessWidget {
       width: 22,
       height: 22,
       child: CustomPaint(
-        painter: _WeChatTargetPainter(),
+        painter: _WeChatTargetPainter(color: color),
       ),
     );
   }
 }
 
 class _WeChatTargetPainter extends CustomPainter {
+  const _WeChatTargetPainter({required this.color});
+
+  final Color color;
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final outer = Paint()
-      ..color = WeChatMiniUiColors.capsuleIcon
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4;
     final inner = Paint()
-      ..color = WeChatMiniUiColors.capsuleIcon
+      ..color = color
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, size.width * 0.36, outer);
     canvas.drawCircle(center, size.width * 0.11, inner);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _WeChatTargetPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
