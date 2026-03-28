@@ -60,26 +60,54 @@ flutter run --dart-define=COS_SITE_ORIGIN=https://cos-dev.example.com
 
 Worker Portal 类小程序依赖壳在登录后写入的 **`wpt.` token**（`login_for_token`）；若仍进 Portal 登录页，确认站点已部署对应 COS 版本，并在壳中重新登录一次。
 
-## 提交前自检与 CI
+## 提交前自检
 
 ```powershell
 .\scripts\verify.ps1
 ```
 
-等价于 `flutter analyze` + `flutter test`。GitHub Actions 工作流：`.github/workflows/flutter_ci.yml`（分析、测试、Linux 上构建 **debug APK** 作回归；**不包含** 正式签名）。
+等价于 `flutter analyze` + `flutter test`（本地执行即可）。
 
 ## 构建发布包（Android）
 
-1. 复制 `android/key.properties.example` 为 `android/key.properties`，填写 keystore（`key.properties`、`.jks` 已列入 `.gitignore`）。
-2. 将 keystore 文件放在 `android/` 下（或按 `storeFile` 填写路径）。
-3. 执行：
+### 1. 生成团队共用的 release keystore（只需做一次）
+
+在已安装 **JDK**（或 Android Studio 自带 JRE 的 `keytool` 在 PATH 中）的机器上，于项目根目录执行：
+
+```powershell
+cd c:\Users\weelc\Workspace\Coding\cos-work-app\android
+keytool -genkeypair -v -keystore cos-release-key.jks -alias cosRelease -keyalg RSA -keysize 2048 -validity 10000
+```
+
+按提示设置 **keystore 密码**、姓名组织等信息（内部分发可填公司名）。若提示「key 密码与 store 密码是否相同」，内测为省事可选一致，务必自己记住。
+
+**重要：** `cos-release-key.jks` 丢失且没有备份时，以后无法用同一身份覆盖安装已发出去的包；请把 `.jks` 存到公司密码柜/加密盘，**不要提交到 Git**（已在 `.gitignore`）。
+
+### 2. 配置 Gradle 读取签名
+
+1. 确认文件路径：`android/cos-release-key.jks`（与上一步 `-keystore` 一致）。
+2. 复制模板并改名：
+
+   ```powershell
+   copy android\key.properties.example android\key.properties
+   ```
+
+3. 编辑 `android/key.properties`（**勿提交**）：
+
+   - `storePassword` / `keyPassword`：与 `keytool` 时设置的一致（若分开设则分别填写）。
+   - `keyAlias`：与 `-alias` 一致，示例为 `cosRelease`。
+   - `storeFile`：相对 **`android/app`** 的路径，keystore 放在 `android/` 下时应为 `../cos-release-key.jks`（与 `key.properties.example` 一致）。
+
+### 3. 打 release 包
 
 ```powershell
 .\scripts\build_android_release.ps1              # APK
-.\scripts\build_android_release.ps1 -AppBundle   # Google Play 用 AAB
+.\scripts\build_android_release.ps1 -AppBundle   # 以后若上架 Play 可用 AAB
 ```
 
-若无 `key.properties`，release 构建仍会使用 **debug 签名**（仅本地调试，不可用于上架）。
+产物示例：`build/app/outputs/flutter-apk/app-release.apk`。
+
+若无 `key.properties`，release 仍会使用 **debug 签名**（仅本地调试用）。
 
 ## 无线调试（ADB）
 
