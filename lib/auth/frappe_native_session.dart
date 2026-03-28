@@ -117,21 +117,23 @@ abstract final class FrappeNativeSession {
     return c;
   }
 
-  /// 部分环境下 [HttpClientResponse.cookies] 偶发未填入 `sid`，改从原始 Set-Cookie 补全。
+  /// 合并响应中的 Cookie：须让 [HttpClientResponse.cookies]（含 Secure/SameSite 等）优先，
+  /// 仅用 `Set-Cookie` 头解析补 **HttpClient 未收录** 的键（如部分环境下缺失的 `sid`）。
+  /// 若反客为主用简化的 name=value 覆盖，会抹掉 Secure，HTTPS WebView 可能不带会话 Cookie → Desk/接口全挂。
   static List<Cookie> _collectCookies(HttpClientResponse res, String host) {
     final byName = <String, Cookie>{};
-    for (final c in res.cookies) {
-      byName[c.name] = c;
-    }
     res.headers.forEach((name, values) {
       if (name.toLowerCase() != 'set-cookie') return;
       for (final line in values) {
         final parsed = _parseSetCookieNameValue(line, host);
         if (parsed != null) {
-          byName[parsed.name] = parsed;
+          byName.putIfAbsent(parsed.name, () => parsed);
         }
       }
     });
+    for (final c in res.cookies) {
+      byName[c.name] = c;
+    }
     return byName.values.toList();
   }
 
@@ -383,6 +385,36 @@ abstract final class FrappeNativeSession {
       return WorkerPortalTokenOutcome.fail('网络错误：${e.message}');
     } on HandshakeException catch (e) {
       return WorkerPortalTokenOutcome.fail('TLS 握手失败：${e.message}');
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// 模拟浏览器首访 Desk：`GET /app`，把响应里的 `Set-Cookie`（如 `csrf_token`）并入当前会话。
+  ///
+  /// 纯 `login` API 有时只下发 `sid`；原生 POST（切换公司等）依赖 `X-Frappe-CSRF-Token`，
+  /// WebView 内 Desk 的 XHR 也依赖完整 Cookie，故登录/冷启动后应至少合并一次。
+  static Future<List<Cookie>> mergeCookiesFromDeskBootstrap({
+    required Uri siteOrigin,
+    required List<Cookie> cookies,
+  }) async {
+    if (cookies.isEmpty) return cookies;
+    final uri = siteOrigin.replace(path: '/app');
+    final client = _newHttpClient();
+    try {
+      final req = await client.getUrl(uri);
+      _attachCookies(req, siteOrigin.host, cookies);
+      final res = await req.close();
+      await res.transform(utf8.decoder).join();
+      final extra = _collectCookies(res, siteOrigin.host);
+      if (extra.isEmpty) return cookies;
+      final byName = <String, Cookie>{for (final c in cookies) c.name: c};
+      for (final c in extra) {
+        byName[c.name] = c;
+      }
+      return byName.values.toList();
+    } catch (_) {
+      return cookies;
     } finally {
       client.close(force: true);
     }

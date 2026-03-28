@@ -95,6 +95,7 @@ class CosAuthService extends ChangeNotifier {
       debugPrint('bootstrap: 未连通服务器，暂保留本地登录状态');
     }
     await _restoreWebCookiesAfterVerify(origin, sid);
+    await _mergeDeskBootstrapCookiesIntoSession(origin);
     await _loadProfilePrefs();
     await _refreshLocalProfileFields();
     _loggedIn = true;
@@ -123,8 +124,12 @@ class CosAuthService extends ChangeNotifier {
     final sid = outcome.sidValue;
     if (sid == null) return '登录未完成，请重试';
     await _secure.write(key: CosSessionKeys.frappeSid, value: sid);
-    await _persistFrappeWebCookies(outcome.cookies);
-    await CosWebCookieSync.applyCookies(origin, outcome.cookies);
+    var sessionCookies = await FrappeNativeSession.mergeCookiesFromDeskBootstrap(
+      siteOrigin: origin,
+      cookies: outcome.cookies,
+    );
+    await _persistFrappeWebCookies(sessionCookies);
+    await CosWebCookieSync.applyCookies(origin, sessionCookies);
     final wptOut = await FrappeNativeSession.loginForWorkerPortalToken(
       siteOrigin: origin,
       usr: usr.trim(),
@@ -138,7 +143,7 @@ class CosAuthService extends ChangeNotifier {
     CosMiniProgramCatalog.instance.clear();
     final uid = await FrappeNativeSession.getLoggedUser(
       siteOrigin: origin,
-      cookies: outcome.cookies,
+      cookies: sessionCookies,
     );
     _userId = uid ?? usr.trim();
     _fullName = _extractFullName(outcome.rawJson) ?? _userId;
@@ -410,6 +415,18 @@ class CosAuthService extends ChangeNotifier {
         primeRequestUrl: primePageUrl,
       );
     }
+  }
+
+  /// 合并 `/app` 下发的 Cookie（csrf 等），修复仅含 sid 的快照导致 POST/Desk 失败。
+  Future<void> _mergeDeskBootstrapCookiesIntoSession(Uri origin) async {
+    final cookies = await _persistedSessionCookies();
+    if (cookies.isEmpty) return;
+    final merged = await FrappeNativeSession.mergeCookiesFromDeskBootstrap(
+      siteOrigin: origin,
+      cookies: cookies,
+    );
+    await _persistFrappeWebCookies(merged);
+    await CosWebCookieSync.applyCookies(origin, merged);
   }
 
   Future<void> _restoreWebCookiesAfterVerify(Uri origin, String sid) async {

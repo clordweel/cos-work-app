@@ -49,6 +49,23 @@ abstract final class CosWebCookieSync {
     await _applyCookiesAndroid(siteOrigin, cookies, primeRequestUrl: primeRequestUrl);
   }
 
+  /// HTTPS 站点下为写入 WebView 的 Cookie 强制 `Secure`，避免属性缺失时 Chromium 拒发会话 Cookie。
+  static List<Cookie> _cookiesAdjustedForWebView(Uri siteOrigin, List<Cookie> cookies) {
+    if (siteOrigin.scheme != 'https') return cookies;
+    return cookies
+        .map(
+          (c) => Cookie(c.name, c.value)
+            ..domain = c.domain
+            ..path = c.path ?? '/'
+            ..httpOnly = c.httpOnly
+            ..sameSite = c.sameSite
+            ..maxAge = c.maxAge
+            ..expires = c.expires
+            ..secure = true,
+        )
+        .toList();
+  }
+
   static Future<void> _applyCookiesAndroid(
     Uri siteOrigin,
     List<Cookie> cookies, {
@@ -60,7 +77,8 @@ abstract final class CosWebCookieSync {
         ? _cookiePrimeUrl(primeRequestUrl)
         : null;
 
-    for (final c in cookies) {
+    final adjusted = _cookiesAdjustedForWebView(siteOrigin, cookies);
+    for (final c in adjusted) {
       final value = c.toString();
       await _androidSetCookiePair(rootUrl, value);
       if (extra != null) {
