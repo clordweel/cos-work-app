@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/cos_frappe_api_methods.dart';
 import '../config/cos_site_store.dart';
+import 'cos_secure_storage_factory.dart';
 import 'cos_session_storage_keys.dart';
 import 'frappe_native_session.dart';
 
@@ -25,7 +26,7 @@ class CosCompanyContext extends ChangeNotifier {
   CosCompanyContext._();
   static final CosCompanyContext instance = CosCompanyContext._();
 
-  final FlutterSecureStorage _secure = const FlutterSecureStorage();
+  final FlutterSecureStorage _secure = cosFlutterSecureStorage;
 
   bool loading = false;
   String? errorMessage;
@@ -92,7 +93,7 @@ class CosCompanyContext extends ChangeNotifier {
         dottedMethod: CosFrappeApiMethods.listAccessibleCompanies,
       );
       if (!listRes.ok) {
-        if (!listRes.indicatesAuthFailure) {
+        if (!listRes.shouldInvalidateNativeSession) {
           errorMessage = listRes.errorText ?? '公司列表加载失败';
         }
         loading = false;
@@ -130,7 +131,7 @@ class CosCompanyContext extends ChangeNotifier {
         final cn = m['company_name']?.toString();
         activeCompanyName = (cn != null && cn.isNotEmpty) ? cn : null;
       } else {
-        if (!curRes.ok && curRes.indicatesAuthFailure) {
+        if (!curRes.ok && curRes.shouldInvalidateNativeSession) {
           loading = false;
           notifyListeners();
           return;
@@ -167,11 +168,11 @@ class CosCompanyContext extends ChangeNotifier {
 
     loading = false;
     if (!res.ok) {
-      if (!res.indicatesAuthFailure) {
+      if (!res.shouldInvalidateNativeSession) {
         errorMessage = res.errorText;
       }
       notifyListeners();
-      return res.indicatesAuthFailure
+      return res.shouldInvalidateNativeSession
           ? '登录已失效，请重新登录'
           : (res.errorText ?? '切换公司失败');
     }

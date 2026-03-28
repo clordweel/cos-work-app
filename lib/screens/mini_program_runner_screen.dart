@@ -7,6 +7,7 @@ import '../auth/cos_auth_service.dart';
 import '../auth/cos_web_auth_scope.dart';
 import '../config/cos_site_store.dart';
 import '../mini_program/cos_mini_program.dart';
+import '../mini_program/worker_portal_token_bootstrap.dart';
 import '../ui/cos_shell_tokens.dart';
 import '../wechat_ui/wechat_mini_program_nav_bar.dart';
 
@@ -31,6 +32,9 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
 
   /// Worker Portal：首屏用 JS 写入 `localStorage` 后最多 `reload` 一次（部分 WebView 对 hash 灌 token 不可靠）。
   bool _workerPortalDomReloadDone = false;
+
+  /// 本次进入已用 URL `#cosWorkerPortalToken=` 首跳（与 `main.tsx` 同步写入），无需再 inject+reload。
+  bool _workerPortalUsedHashBootstrap = false;
 
   double _loadProgress = 0;
   bool _canGoBack = false;
@@ -84,6 +88,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
 
   Future<void> _primeCookiesAndLoad() async {
     _workerPortalDomReloadDone = false;
+    _workerPortalUsedHashBootstrap = false;
     final origin = CosSiteStore.instance.origin;
     final launch = _p.launchUriFor(origin);
     await CosAuthService.instance.ensureWebViewCookiesBeforeBrowse(primePageUrl: launch);
@@ -92,6 +97,16 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     if (_p.authKind == CosMiniProgramAuthKind.workerPortalToken) {
       await CosAuthService.instance.ensureWorkerPortalTokenFresh();
       if (!mounted) return;
+      final token = await CosAuthService.instance.readWorkerPortalToken();
+      if (token != null && token.isNotEmpty) {
+        // 关键：首跳即带 hash，由 Worker Portal `main.tsx` 在 React 挂载**前**写入 localStorage，
+        // 避免首屏 fetch 早于 `onPageFinished` 的 JS 注入 → 无 Bearer / 会话错乱（曾稳定复现类问题）。
+        await _controller.loadRequest(
+          WorkerPortalTokenBootstrap.uriWithEmbeddedToken(launch, token),
+        );
+        _workerPortalUsedHashBootstrap = true;
+        return;
+      }
       await _controller.loadRequest(launch);
       return;
     }
@@ -100,6 +115,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
 
   Future<void> _onWorkerPortalDomInjectIfNeeded(String url) async {
     if (_p.authKind != CosMiniProgramAuthKind.workerPortalToken) return;
+    if (_workerPortalUsedHashBootstrap) return;
     if (!url.contains('worker-portal')) return;
     if (!CosAuthService.instance.isLoggedIn) return;
     final token = await CosAuthService.instance.readWorkerPortalToken();

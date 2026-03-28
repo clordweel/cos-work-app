@@ -11,6 +11,7 @@ import '../config/cos_frappe_api_methods.dart';
 import '../config/cos_site_store.dart';
 import 'cos_web_cookie_sync.dart';
 import 'cos_biometric_gate.dart';
+import 'cos_secure_storage_factory.dart';
 import 'cos_session_storage_keys.dart';
 import 'frappe_native_session.dart';
 import 'cos_company_context.dart';
@@ -29,7 +30,7 @@ class CosAuthService extends ChangeNotifier {
   CosAuthService._();
   static final CosAuthService instance = CosAuthService._();
 
-  final FlutterSecureStorage _secure = const FlutterSecureStorage();
+  final FlutterSecureStorage _secure = cosFlutterSecureStorage;
 
   bool _bootstrapDone = false;
   bool _loggedIn = false;
@@ -39,9 +40,6 @@ class CosAuthService extends ChangeNotifier {
   String? _localPhone;
   bool _biometricGateEnabled = false;
   bool _sessionBiometricUnlocked = true;
-
-  /// 本次「密码登录成功」后，由首页弹出一次指纹/面容引导（避免在已卸载的 Login 页上弹系统验证）。
-  bool _biometricLoginOfferPending = false;
 
   bool get isBootstrapDone => _bootstrapDone;
   bool get isLoggedIn => _loggedIn;
@@ -57,13 +55,6 @@ class CosAuthService extends ChangeNotifier {
   bool get needsBiometricUnlock =>
       _loggedIn && _biometricGateEnabled && !_sessionBiometricUnlocked;
 
-  /// 是否需要在进入首页后展示「开启指纹/面容」引导（由 [MiniProgramLauncherScreen] 消费）。
-  bool get hasBiometricLoginOfferPending => _biometricLoginOfferPending;
-
-  void clearBiometricLoginOffer() {
-    _biometricLoginOfferPending = false;
-  }
-
   /// 仅单测：跳过登录门禁。
   @visibleForTesting
   void testingForceAuthenticated() {
@@ -75,7 +66,6 @@ class CosAuthService extends ChangeNotifier {
   }
 
   Future<void> bootstrap() async {
-    _biometricLoginOfferPending = false;
     await CosSiteStore.instance.init();
     await _loadBiometricGatePref();
     final sid = await _secure.read(key: CosSessionKeys.frappeSid);
@@ -145,6 +135,7 @@ class CosAuthService extends ChangeNotifier {
     } else {
       debugPrint('Worker Portal token 未获取：${wptOut.errorMessage ?? "unknown"}');
     }
+    CosMiniProgramCatalog.instance.clear();
     final uid = await FrappeNativeSession.getLoggedUser(
       siteOrigin: origin,
       cookies: outcome.cookies,
@@ -156,12 +147,10 @@ class CosAuthService extends ChangeNotifier {
     _loggedIn = true;
     _sessionBiometricUnlocked = true;
     _bootstrapDone = true;
-    if (!_biometricGateEnabled) {
-      _biometricLoginOfferPending = true;
-    }
     notifyListeners();
     await CosCompanyContext.instance.refreshFromServer();
-    unawaited(CosMiniProgramCatalog.instance.refreshFromServer());
+    await CosMiniProgramCatalog.instance.refreshFromServer();
+    await CosMiniProgramCatalog.instance.refreshMarketFromServer();
     return null;
   }
 
@@ -228,7 +217,6 @@ class CosAuthService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    _biometricLoginOfferPending = false;
     final sid = await _secure.read(key: CosSessionKeys.frappeSid);
     final origin = CosSiteStore.instance.origin;
     // 先清本地并刷新 UI，避免远端 /api/method/logout 阻塞导致「已点登出却仍停在历史页」。
@@ -243,7 +231,6 @@ class CosAuthService extends ChangeNotifier {
 
   /// 修改站点等场景：清除本地会话，需重新登录。
   Future<void> clearSessionExpectRelogin() async {
-    _biometricLoginOfferPending = false;
     await _clearSessionData(clearSecureSid: true);
     _loggedIn = false;
     _sessionBiometricUnlocked = true;
@@ -340,6 +327,9 @@ class CosAuthService extends ChangeNotifier {
   /// 使用当前 Frappe 会话（sid + Cookie 快照）向站点索取或刷新 Worker Portal `wpt.` token。
   ///
   /// 解决：冷启动仅恢复 sid、旧 wpt 过期、或从未成功写入 wpt 时，WebView 内 Portal 无法鉴权。
+  ///
+  /// 换发失败**不会**清本机 Frappe 会话（见 [FrappeNativeSession.callMethodGet] 的
+  /// `invalidateSessionOnAuthFailure: false`），避免杀后台后偶发 Login required 误删 `sid`。
   Future<void> ensureWorkerPortalTokenFresh() async {
     if (!CosSiteStore.instance.isInitialized) return;
     if (!_loggedIn) return;
@@ -351,23 +341,39 @@ class CosAuthService extends ChangeNotifier {
       }
       return;
     }
-    final res = await FrappeNativeSession.callMethodGet(
-      siteOrigin: origin,
-      cookies: cookies,
-      dottedMethod: CosFrappeApiMethods.issueWorkerPortalTokenFromSession,
-    );
-    if (!res.ok) {
-      if (kDebugMode) {
-        debugPrint('ensureWorkerPortalTokenFresh: ${res.errorText}');
+    FrappeRpcResult? lastFail;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 450));
       }
-      return;
+      final res = await FrappeNativeSession.callMethodGet(
+        siteOrigin: origin,
+        cookies: cookies,
+        dottedMethod: CosFrappeApiMethods.issueWorkerPortalTokenFromSession,
+        invalidateSessionOnAuthFailure: false,
+      );
+      if (res.ok) {
+        final msg = res.message;
+        if (msg is Map) {
+          final t = msg['token'];
+          if (t is String && t.startsWith('wpt.')) {
+            await _secure.write(key: _kSecureWorkerPortalToken, value: t);
+          }
+        }
+        return;
+      }
+      lastFail = res;
     }
-    final msg = res.message;
-    if (msg is Map) {
-      final t = msg['token'];
-      if (t is String && t.startsWith('wpt.')) {
-        await _secure.write(key: _kSecureWorkerPortalToken, value: t);
-      }
+    if (lastFail != null &&
+        lastFail.indicatesAuthFailure &&
+        lastFail.httpStatus != 503) {
+      // 换发失败且为登录/会话类错误：清本地 wpt，避免长期带无效 Bearer 触发服务端删缓存后仍反复脏请求。
+      await _secure.delete(key: _kSecureWorkerPortalToken);
+    }
+    if (kDebugMode) {
+      debugPrint(
+        'ensureWorkerPortalTokenFresh: ${lastFail?.errorText ?? "unknown"}',
+      );
     }
   }
 

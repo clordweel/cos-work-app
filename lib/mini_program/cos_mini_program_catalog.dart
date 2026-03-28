@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/frappe_native_session.dart';
 import '../config/cos_frappe_api_methods.dart';
 import '../config/cos_site_store.dart';
+import '../auth/cos_secure_storage_factory.dart';
 import '../auth/cos_session_storage_keys.dart';
 import 'cos_market_program.dart';
 import 'cos_mini_program.dart';
@@ -18,7 +19,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
   CosMiniProgramCatalog._();
   static final CosMiniProgramCatalog instance = CosMiniProgramCatalog._();
 
-  final FlutterSecureStorage _secure = const FlutterSecureStorage();
+  final FlutterSecureStorage _secure = cosFlutterSecureStorage;
 
   List<CosMiniProgram>? _remote;
   List<CosMarketProgram>? _market;
@@ -87,7 +88,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
         dottedMethod: CosFrappeApiMethods.getLauncherPrograms,
       );
       if (!res.ok) {
-        if (!res.indicatesAuthFailure) {
+        if (!res.shouldInvalidateNativeSession) {
           lastError = res.errorText;
         }
         loading = false;
@@ -157,7 +158,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
         dottedMethod: CosFrappeApiMethods.getMarketPrograms,
       );
       if (!res.ok) {
-        if (!res.indicatesAuthFailure) {
+        if (!res.shouldInvalidateNativeSession) {
           marketLastError = res.errorText ?? '加载失败';
         }
         marketLoading = false;
@@ -200,7 +201,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
       fields: {'mini_program': frappeDocName},
     );
     if (!res.ok) {
-      if (res.indicatesAuthFailure) {
+      if (res.shouldInvalidateNativeSession) {
         return '登录已失效，请重新登录';
       }
       return res.errorText ?? '添加失败';
@@ -221,7 +222,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
       fields: {'mini_program': frappeDocName},
     );
     if (!res.ok) {
-      if (res.indicatesAuthFailure) {
+      if (res.shouldInvalidateNativeSession) {
         return '登录已失效，请重新登录';
       }
       return res.errorText ?? '移除失败';

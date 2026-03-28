@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/cos_site_config.dart';
+import 'cos_secure_storage_factory.dart';
 
 const _kPrefsEntriesJson = 'cos_login_history_entries_v1';
 const _kSecurePwdPrefix = 'cos_login_hist_pwd_';
@@ -102,7 +103,7 @@ class CosLoginHistoryStore {
   CosLoginHistoryStore._();
   static final CosLoginHistoryStore instance = CosLoginHistoryStore._();
 
-  final FlutterSecureStorage _secure = const FlutterSecureStorage();
+  final FlutterSecureStorage _secure = cosFlutterSecureStorage;
 
   /// 用户中心「切换账号」选凭证后先暂存，待登出后新建的 [LoginScreen] 消费并回填表单。
   CosLoginHistoryPick? _pendingPrefillAfterLogout;

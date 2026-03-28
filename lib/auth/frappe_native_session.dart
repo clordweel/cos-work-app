@@ -71,11 +71,40 @@ class FrappeRpcResult {
     final t = (errorText ?? '').toLowerCase();
     if (t.contains('user not found')) return true;
     if (t.contains('usernotfounderror')) return true;
+    if (t.contains('user none not found')) return true;
     if (t.contains('login required')) return true;
     if (t.contains('invalid session')) return true;
     if (t.contains('session expired')) return true;
     if (t.contains('does not exist') && t.contains('user')) return true;
     if (t.contains('doesnotexist') && t.contains('user')) return true;
+    return false;
+  }
+
+  /// 是否应**清空本机 Frappe 会话**（sid / Cookie / Portal token）。
+  ///
+  /// 与 [indicatesAuthFailure] 区分：业务 **Permission / Validation / 单据不存在** 不代表已登出，
+  /// 误清会导致「网络抖动或权限接口报错 → 整站被踢下线」。
+  bool get shouldInvalidateNativeSession {
+    if (ok) return false;
+    final s = httpStatus;
+    if (s == 401) return true;
+    final et = (excType ?? '').toLowerCase();
+    if (et.contains('permission')) return false;
+    if (et.contains('validation')) return false;
+    if (et.contains('doesnotexist')) return false;
+    if (et.contains('linkvalidation')) return false;
+    if (et.contains('dataerror')) return false;
+    if (et.contains('authentication')) return true;
+    if (et.contains('session') &&
+        (et.contains('expir') || et.contains('stopped'))) {
+      return true;
+    }
+    final t = (errorText ?? '').toLowerCase();
+    if (t.contains('login required')) return true;
+    if (t.contains('invalid session')) return true;
+    if (t.contains('session expired')) return true;
+    if (t.contains('user not found')) return true;
+    if (t.contains('usernotfounderror')) return true;
     return false;
   }
 }
@@ -197,9 +226,24 @@ abstract final class FrappeNativeSession {
   }
 
   static const Duration _sessionVerifyTimeout = Duration(seconds: 12);
+  static const int _sessionVerifyMaxAttempts = 3;
+  static const Duration _sessionVerifyRetryDelay = Duration(milliseconds: 400);
 
-  /// 与 [verifySession] 相同入参，但区分「真失效」与「无法连接服务器」。
-  static Future<FrappeSessionVerifyResult> verifySessionDetailed({
+  /// `get_logged_user` 返回的 `exc_type` 是否表示**会话已死**（勿把业务 Permission 当成登出）。
+  static bool _verifyGetLoggedUserExcTypeMeansSessionDead(String excType) {
+    final et = excType.toLowerCase();
+    if (et.contains('permission')) return false;
+    if (et.contains('validation')) return false;
+    if (et.contains('doesnotexist')) return false;
+    if (et.contains('linkvalidation')) return false;
+    if (et.contains('dataerror')) return false;
+    if (et.contains('authentication')) return true;
+    if (et.contains('sessionstopped')) return true;
+    if (et.contains('sessionexpired')) return true;
+    return false;
+  }
+
+  static Future<FrappeSessionVerifyResult> _verifySessionDetailedOnce({
     required Uri siteOrigin,
     required String sidValue,
   }) async {
@@ -232,8 +276,12 @@ abstract final class FrappeNativeSession {
         return FrappeSessionVerifyResult.inconclusive;
       }
 
-      if (map != null && map['exc_type'] != null) {
-        return FrappeSessionVerifyResult.unauthenticated;
+      final excRaw = map?['exc_type']?.toString();
+      if (excRaw != null && excRaw.isNotEmpty) {
+        if (_verifyGetLoggedUserExcTypeMeansSessionDead(excRaw)) {
+          return FrappeSessionVerifyResult.unauthenticated;
+        }
+        return FrappeSessionVerifyResult.inconclusive;
       }
 
       final msg = map?['message'];
@@ -257,6 +305,30 @@ abstract final class FrappeNativeSession {
     } finally {
       client.close(force: true);
     }
+  }
+
+  /// 与 [verifySession] 相同入参，但区分「真失效」与「无法连接服务器」。
+  ///
+  /// 冷启动偶发 Guest/鉴权异常时最多重试 [_sessionVerifyMaxAttempts] 次，避免误清 [sid]。
+  static Future<FrappeSessionVerifyResult> verifySessionDetailed({
+    required Uri siteOrigin,
+    required String sidValue,
+  }) async {
+    FrappeSessionVerifyResult last = FrappeSessionVerifyResult.unauthenticated;
+    for (var attempt = 0; attempt < _sessionVerifyMaxAttempts; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(_sessionVerifyRetryDelay);
+      }
+      last = await _verifySessionDetailedOnce(
+        siteOrigin: siteOrigin,
+        sidValue: sidValue,
+      );
+      if (last == FrappeSessionVerifyResult.authenticated ||
+          last == FrappeSessionVerifyResult.inconclusive) {
+        return last;
+      }
+    }
+    return last;
   }
 
   static Future<bool> verifySession({
@@ -387,16 +459,21 @@ abstract final class FrappeNativeSession {
     return null;
   }
 
-  /// 所有 `/api/method` GET/POST 在解析结果后调用：会话类错误统一清本地登录态。
+  /// 仅在高度确信「站点会话已失效」时清本机登录态（勿把业务 Permission 当成登出）。
   static Future<void> _applyAuthFailureFromRpc(FrappeRpcResult r) async {
-    if (r.ok || !r.indicatesAuthFailure) return;
+    if (r.ok || !r.shouldInvalidateNativeSession) return;
     await CosAuthService.instance.clearSessionExpectRelogin();
   }
 
+  /// [invalidateSessionOnAuthFailure]：为 false 时，鉴权类失败**不会**触发 [CosAuthService.clearSessionExpectRelogin]。
+  ///
+  /// 用于 `issue_token_from_session` 等**辅助**接口：其失败只表示「本次未换发 wpt」，不代表应删除本机
+  /// Frappe `sid`；否则冷启动 Cookie 尚未稳定时一次 Login required 就会整段误清会话（表现为杀后台后必重登）。
   static Future<FrappeRpcResult> callMethodGet({
     required Uri siteOrigin,
     required List<Cookie> cookies,
     required String dottedMethod,
+    bool invalidateSessionOnAuthFailure = true,
   }) async {
     final uri = siteOrigin.replace(path: CosFrappeApiMethods.pathFor(dottedMethod));
     final client = _newHttpClient();
@@ -406,7 +483,9 @@ abstract final class FrappeNativeSession {
       final res = await req.close();
       final text = await res.transform(utf8.decoder).join();
       final parsed = _parseRpcResponse(res.statusCode, text);
-      await _applyAuthFailureFromRpc(parsed);
+      if (invalidateSessionOnAuthFailure) {
+        await _applyAuthFailureFromRpc(parsed);
+      }
       return parsed;
     } on SocketException catch (e) {
       return FrappeRpcResult.failure('网络错误：${e.message}');
@@ -424,6 +503,7 @@ abstract final class FrappeNativeSession {
     required List<Cookie> cookies,
     required String dottedMethod,
     required Map<String, String> fields,
+    bool invalidateSessionOnAuthFailure = true,
   }) async {
     final uri = siteOrigin.replace(path: CosFrappeApiMethods.pathFor(dottedMethod));
     final client = _newHttpClient();
@@ -442,7 +522,9 @@ abstract final class FrappeNativeSession {
       final res = await req.close();
       final text = await res.transform(utf8.decoder).join();
       final parsed = _parseRpcResponse(res.statusCode, text);
-      await _applyAuthFailureFromRpc(parsed);
+      if (invalidateSessionOnAuthFailure) {
+        await _applyAuthFailureFromRpc(parsed);
+      }
       return parsed;
     } on SocketException catch (e) {
       return FrappeRpcResult.failure('网络错误：${e.message}');
