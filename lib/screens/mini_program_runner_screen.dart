@@ -3,12 +3,16 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../auth/cos_auth_service.dart';
 import '../auth/cos_web_auth_scope.dart';
-import '../auth/cos_web_cookie_sync.dart';
 import '../config/cos_site_store.dart';
 import '../mini_program/cos_mini_program.dart';
 import '../mini_program/worker_portal_token_bootstrap.dart';
 import '../ui/cos_shell_tokens.dart';
 import '../wechat_ui/wechat_mini_program_nav_bar.dart';
+
+/// 与 Worker Portal `clientEnv.isCosFlutterShell` 约定一致（须含 `CosWorkApp`）。
+const String _kCosWorkWebViewUserAgent =
+    'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/120.0.0.0 Mobile Safari/537.36 CosWorkApp/1.0';
 
 /// 单个小程序运行容器：顶部 UI 按微信小程序（标题居中 + 右胶囊 + 左栈返回）。
 class MiniProgramRunnerScreen extends StatefulWidget {
@@ -65,7 +69,11 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
         ),
       );
     CosWebAuthScope.prepareWebViewController(_controller);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _primeCookiesAndLoad());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _controller.setUserAgent(_kCosWorkWebViewUserAgent);
+      if (!mounted) return;
+      await _primeCookiesAndLoad();
+    });
   }
 
   Future<void> _primeCookiesAndLoad() async {
@@ -77,14 +85,8 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     if (_p.authKind == CosMiniProgramAuthKind.workerPortalToken) {
       final token = await CosAuthService.instance.readWorkerPortalToken();
       if (token != null && token.isNotEmpty) {
-        final html = WorkerPortalTokenBootstrap.htmlRedirect(
-          token: token,
-          target: launch,
-        );
-        await _controller.loadHtmlString(
-          html,
-          baseUrl: CosWebCookieSync.cookieSetUrlForOrigin(origin),
-        );
+        final withToken = WorkerPortalTokenBootstrap.uriWithEmbeddedToken(launch, token);
+        await _controller.loadRequest(withToken);
         return;
       }
     }
