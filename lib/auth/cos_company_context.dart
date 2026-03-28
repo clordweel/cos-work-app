@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ import '../config/cos_frappe_api_methods.dart';
 import '../config/cos_site_store.dart';
 import 'cos_secure_storage_factory.dart';
 import 'cos_session_storage_keys.dart';
+import 'cos_web_cookie_sync.dart';
 import 'frappe_native_session.dart';
 
 /// 单条公司（ERPNext `Company`）。
@@ -62,6 +64,25 @@ class CosCompanyContext extends ChangeNotifier {
       host: host,
       sidValue: sid,
     );
+  }
+
+  /// 与 [CosAuthService._persistFrappeWebCookies] 同结构，供切换公司前合并 csrf 后写回。
+  Future<void> _persistFrappeCookieSnapshot(List<Cookie> cookies) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = cookies
+        .map(
+          (c) => <String, dynamic>{
+            'name': c.name,
+            'value': c.value,
+            if (c.domain != null) 'domain': c.domain,
+            if (c.path != null) 'path': c.path,
+            'secure': c.secure,
+            'httpOnly': c.httpOnly,
+            if (c.sameSite != null) 'sameSite': c.sameSite!.name,
+          },
+        )
+        .toList();
+    await prefs.setString(CosSessionKeys.frappeWebCookiesJson, jsonEncode(list));
   }
 
   /// 登录成功或冷启动恢复会话后调用，拉取列表与当前默认公司。
@@ -151,7 +172,7 @@ class CosCompanyContext extends ChangeNotifier {
   /// 设置当前默认公司（会话级）。
   Future<String?> setActiveCompany(String name) async {
     if (!CosSiteStore.instance.isInitialized) return '请稍候再试';
-    final cookies = await _sessionCookies();
+    var cookies = await _sessionCookies();
     if (cookies.isEmpty) return '请先登录';
 
     loading = true;
@@ -159,6 +180,21 @@ class CosCompanyContext extends ChangeNotifier {
     notifyListeners();
 
     final origin = CosSiteStore.instance.origin;
+    // POST 依赖 X-Frappe-CSRF-Token；纯 login API 快照常无 csrf_token →「无效请求」
+    try {
+      final merged = await FrappeNativeSession.mergeCookiesFromDeskBootstrap(
+        siteOrigin: origin,
+        cookies: cookies,
+      );
+      await _persistFrappeCookieSnapshot(merged);
+      await CosWebCookieSync.applyCookies(origin, merged);
+      cookies = merged;
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('setActiveCompany: 合并 Desk Cookie 失败 $e\n$st');
+      }
+    }
+
     final res = await FrappeNativeSession.callMethodPostForm(
       siteOrigin: origin,
       cookies: cookies,
