@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../config/cos_frappe_api_methods.dart';
 import 'cos_auth_service.dart';
 
 /// 冷启动校验 sid 时的结论（避免把「网络抖动」当成「已登出」并清空本地会话）。
@@ -87,7 +88,7 @@ abstract final class FrappeNativeSession {
     return c;
   }
 
-  /// Windows 等平台下 [HttpClientResponse.cookies] 偶发未填入 `sid`，改从原始 Set-Cookie 补全。
+  /// 部分环境下 [HttpClientResponse.cookies] 偶发未填入 `sid`，改从原始 Set-Cookie 补全。
   static List<Cookie> _collectCookies(HttpClientResponse res, String host) {
     final byName = <String, Cookie>{};
     for (final c in res.cookies) {
@@ -126,7 +127,7 @@ abstract final class FrappeNativeSession {
     required String usr,
     required String pwd,
   }) async {
-    final uri = siteOrigin.replace(path: '/api/method/login');
+    final uri = CosFrappeApiMethods.uri(siteOrigin, CosFrappeApiMethods.login);
     final client = _newHttpClient();
     try {
       final req = await client.postUrl(uri);
@@ -172,7 +173,8 @@ abstract final class FrappeNativeSession {
     required Uri siteOrigin,
     required List<Cookie> cookies,
   }) async {
-    final uri = siteOrigin.replace(path: '/api/method/frappe.auth.get_logged_user');
+    final uri =
+        CosFrappeApiMethods.uri(siteOrigin, CosFrappeApiMethods.getLoggedUser);
     final client = _newHttpClient();
     try {
       final req = await client.getUrl(uri);
@@ -201,7 +203,8 @@ abstract final class FrappeNativeSession {
     required Uri siteOrigin,
     required String sidValue,
   }) async {
-    final uri = siteOrigin.replace(path: '/api/method/frappe.auth.get_logged_user');
+    final uri =
+        CosFrappeApiMethods.uri(siteOrigin, CosFrappeApiMethods.getLoggedUser);
     final client = _newHttpClient();
     try {
       final req = await client.getUrl(uri);
@@ -273,7 +276,10 @@ abstract final class FrappeNativeSession {
     required String usr,
     required String pwd,
   }) async {
-    final uri = siteOrigin.replace(path: '/api/method/cos.worker_portal_api.login_for_token');
+    final uri = CosFrappeApiMethods.uri(
+      siteOrigin,
+      CosFrappeApiMethods.workerPortalLoginForToken,
+    );
     final client = _newHttpClient();
     try {
       final req = await client.postUrl(uri);
@@ -314,7 +320,7 @@ abstract final class FrappeNativeSession {
     required Uri siteOrigin,
     required String sidValue,
   }) async {
-    final uri = siteOrigin.replace(path: '/api/method/logout');
+    final uri = CosFrappeApiMethods.uri(siteOrigin, CosFrappeApiMethods.logout);
     final client = _newHttpClient();
     try {
       final req = await client.postUrl(uri);
@@ -392,7 +398,7 @@ abstract final class FrappeNativeSession {
     required List<Cookie> cookies,
     required String dottedMethod,
   }) async {
-    final uri = siteOrigin.replace(path: '/api/method/$dottedMethod');
+    final uri = siteOrigin.replace(path: CosFrappeApiMethods.pathFor(dottedMethod));
     final client = _newHttpClient();
     try {
       final req = await client.getUrl(uri);
@@ -419,7 +425,7 @@ abstract final class FrappeNativeSession {
     required String dottedMethod,
     required Map<String, String> fields,
   }) async {
-    final uri = siteOrigin.replace(path: '/api/method/$dottedMethod');
+    final uri = siteOrigin.replace(path: CosFrappeApiMethods.pathFor(dottedMethod));
     final client = _newHttpClient();
     try {
       final req = await client.postUrl(uri);

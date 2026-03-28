@@ -6,13 +6,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/frappe_native_session.dart';
+import '../config/cos_frappe_api_methods.dart';
 import '../config/cos_site_store.dart';
 import '../auth/cos_session_storage_keys.dart';
 import 'cos_market_program.dart';
 import 'cos_mini_program.dart';
 import '../routing/mini_program_registry.dart';
 
-/// 从站点 `cos.work_app_launcher_api.get_launcher_programs` 拉取首页宫格；失败或无数据时回退 [MiniProgramRegistry.forLauncherGrid]。
+/// 从站点 [CosFrappeApiMethods.getLauncherPrograms] 拉取首页宫格；失败或无数据时回退 [MiniProgramRegistry.forLauncherGrid]。
 class CosMiniProgramCatalog extends ChangeNotifier {
   CosMiniProgramCatalog._();
   static final CosMiniProgramCatalog instance = CosMiniProgramCatalog._();
@@ -83,7 +84,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
       final res = await FrappeNativeSession.callMethodGet(
         siteOrigin: origin,
         cookies: cookies,
-        dottedMethod: 'cos.work_app_launcher_api.get_launcher_programs',
+        dottedMethod: CosFrappeApiMethods.getLauncherPrograms,
       );
       if (!res.ok) {
         if (!res.indicatesAuthFailure) {
@@ -153,7 +154,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
       final res = await FrappeNativeSession.callMethodGet(
         siteOrigin: origin,
         cookies: cookies,
-        dottedMethod: 'cos.work_app_launcher_api.get_market_programs',
+        dottedMethod: CosFrappeApiMethods.getMarketPrograms,
       );
       if (!res.ok) {
         if (!res.indicatesAuthFailure) {
@@ -195,7 +196,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
     final res = await FrappeNativeSession.callMethodPostForm(
       siteOrigin: origin,
       cookies: cookies,
-      dottedMethod: 'cos.work_app_launcher_api.add_user_mini_program',
+      dottedMethod: CosFrappeApiMethods.addUserMiniProgram,
       fields: {'mini_program': frappeDocName},
     );
     if (!res.ok) {
@@ -216,7 +217,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
     final res = await FrappeNativeSession.callMethodPostForm(
       siteOrigin: origin,
       cookies: cookies,
-      dottedMethod: 'cos.work_app_launcher_api.remove_user_mini_program',
+      dottedMethod: CosFrappeApiMethods.removeUserMiniProgram,
       fields: {'mini_program': frappeDocName},
     );
     if (!res.ok) {

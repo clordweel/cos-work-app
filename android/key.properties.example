@@ -1,0 +1,11 @@
+# 复制为 android/key.properties 并填写（key.properties 已加入 .gitignore，勿提交）。
+# 生成 keystore 示例：
+#   keytool -genkey -v -keystore cos-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias cosRelease
+#
+# storeFile 可为相对于 android 目录的路径，或绝对路径。
+
+storePassword=请填写
+keyPassword=请填写
+keyAlias=cosRelease
+# 相对于 android/app 的路径（keystore 放在 android/ 目录时常用 ../xxx.jks）
+storeFile=../cos-release-key.jks

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/cos_frappe_api_methods.dart';
 import '../config/cos_site_store.dart';
 import 'cos_session_storage_keys.dart';
 import 'frappe_native_session.dart';
@@ -88,7 +89,7 @@ class CosCompanyContext extends ChangeNotifier {
       final listRes = await FrappeNativeSession.callMethodGet(
         siteOrigin: origin,
         cookies: cookies,
-        dottedMethod: 'cos.company_context_api.list_accessible_companies',
+        dottedMethod: CosFrappeApiMethods.listAccessibleCompanies,
       );
       if (!listRes.ok) {
         if (!listRes.indicatesAuthFailure) {
@@ -120,7 +121,7 @@ class CosCompanyContext extends ChangeNotifier {
       final curRes = await FrappeNativeSession.callMethodGet(
         siteOrigin: origin,
         cookies: cookies,
-        dottedMethod: 'cos.company_context_api.get_session_company',
+        dottedMethod: CosFrappeApiMethods.getSessionCompany,
       );
       if (curRes.ok && curRes.message is Map) {
         final m = Map<String, dynamic>.from(curRes.message as Map);
@@ -160,7 +161,7 @@ class CosCompanyContext extends ChangeNotifier {
     final res = await FrappeNativeSession.callMethodPostForm(
       siteOrigin: origin,
       cookies: cookies,
-      dottedMethod: 'cos.company_context_api.set_default_company',
+      dottedMethod: CosFrappeApiMethods.setDefaultCompany,
       fields: {'company': name},
     );
 

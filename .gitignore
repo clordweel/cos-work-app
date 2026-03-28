@@ -11,6 +11,9 @@ build/
 *.ipr
 *.iws
 .local.properties
+android/key.properties
+*.jks
+*.keystore
 android/.gradle/
 android/captures/
 android/gradlew

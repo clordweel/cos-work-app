@@ -130,6 +130,13 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     await _controller.reload();
   }
 
+  /// 当前页刷新仍失败时：重新向系统 WebView 灌入 Cookie 并重新加载首跳（含 Worker Portal token 分支）。
+  Future<void> _retryFromStart() async {
+    if (!mounted) return;
+    setState(() => _loadError = null);
+    await _primeCookiesAndLoad();
+  }
+
   void _showCapsuleMoreMenu() {
     showModalBottomSheet<void>(
       context: context,
@@ -251,9 +258,18 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
                           ),
                         ),
                       ),
-                      TextButton(
-                        onPressed: _reload,
-                        child: const Text('重试'),
+                      Wrap(
+                        spacing: 4,
+                        children: [
+                          TextButton(
+                            onPressed: _reload,
+                            child: const Text('刷新'),
+                          ),
+                          TextButton(
+                            onPressed: _retryFromStart,
+                            child: const Text('重新进入'),
+                          ),
+                        ],
                       ),
                     ],
                   ),

@@ -20,7 +20,10 @@ const _kPrefsUserId = 'cos_frappe_user_id';
 const _kPrefsFullName = 'cos_frappe_full_name';
 const _kPrefsBiometricGateEnabled = 'cos_biometric_gate_enabled';
 
-/// 原生登录态：Frappe `/api/method/login` + sid 持久化 + WebView Cookie 同步。
+/// 原生登录态：Frappe 登录接口 + `sid` 持久化 + WebView Cookie 同步。
+///
+/// **凭证（Android）**：`sid`、Worker Portal token 等经 [FlutterSecureStorage] 走系统密钥库；
+/// Frappe Cookie 列表 JSON 存 [SharedPreferences]（供 HTTP 重建；会话仍以 `sid` 为准）。
 class CosAuthService extends ChangeNotifier {
   CosAuthService._();
   static final CosAuthService instance = CosAuthService._();
