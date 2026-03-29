@@ -11,7 +11,7 @@ import 'mini_program_registry.dart';
 
 /// 应用内导航集中入口：原生页走命名路由，Alpha 小程序统一走 WebView 容器。
 abstract final class CosNavigation {
-  /// 打开前同步一次宫格，使 Desk 中 `nav_bar_inset_mode` / `show_nav_bar_title` 等变更无需重新登录即可生效。
+  /// 打开前按 program_id GET 单条 Desk 配置（`get_mini_program_launch_config`），不依赖宫格缓存。
   static Future<void> openMiniProgram(
     BuildContext context,
     CosMiniProgram program,
@@ -24,8 +24,7 @@ abstract final class CosNavigation {
     }
     var p = program;
     if (CosSiteStore.instance.isInitialized) {
-      await CosMiniProgramCatalog.instance.refreshFromServer();
-      p = CosMiniProgramCatalog.instance.findById(program.id) ?? program;
+      p = await CosMiniProgramCatalog.instance.resolveProgramForOpen(program);
     }
     if (!context.mounted) return;
     if (!p.programEnabled) {

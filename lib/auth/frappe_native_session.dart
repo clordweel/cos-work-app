@@ -570,8 +570,15 @@ abstract final class FrappeNativeSession {
     required List<Cookie> cookies,
     required String dottedMethod,
     bool invalidateSessionOnAuthFailure = true,
+    Map<String, String>? queryParameters,
   }) async {
-    final uri = siteOrigin.replace(path: CosFrappeApiMethods.pathFor(dottedMethod));
+    var uri =
+        siteOrigin.replace(path: CosFrappeApiMethods.pathFor(dottedMethod));
+    if (queryParameters != null && queryParameters.isNotEmpty) {
+      final qp = Map<String, String>.from(uri.queryParameters);
+      qp.addAll(queryParameters);
+      uri = uri.replace(queryParameters: qp);
+    }
     final client = _newHttpClient();
     try {
       final req = await client.getUrl(uri);

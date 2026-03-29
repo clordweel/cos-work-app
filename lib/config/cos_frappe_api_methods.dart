@@ -40,6 +40,9 @@ abstract final class CosFrappeApiMethods {
   // —— COS 工作台小程序启动器 ——
   static const String getLauncherPrograms =
       'cos.work_app_launcher_api.get_launcher_programs';
+  /// 按 program_id 拉单条启动配置（打开小程序前调用，与宫格列表无关）。
+  static const String getMiniProgramLaunchConfig =
+      'cos.work_app_launcher_api.get_mini_program_launch_config';
   static const String getMarketPrograms =
       'cos.work_app_launcher_api.get_market_programs';
   static const String addUserMiniProgram =

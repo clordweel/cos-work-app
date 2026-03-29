@@ -124,7 +124,9 @@ class MiniProgramLauncherScreen extends StatelessWidget {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
-                  await CosMiniProgramCatalog.instance.refreshFromServer();
+                  await CosMiniProgramCatalog.instance.refreshFromServer(
+                    force: true,
+                  );
                   await CosMiniProgramCatalog.instance.refreshMarketFromServer();
                 },
                 child: ListenableBuilder(

@@ -59,6 +59,29 @@ class CosMiniProgramCatalog extends ChangeNotifier {
     return MiniProgramRegistry.tryFindById(id);
   }
 
+  /// 每次打开小程序前调用：独立 GET 单条 Desk 配置，不依赖宫格缓存、也不与进行中的宫格刷新合并。
+  ///
+  /// 若站点无对应 Doc 或无权读取，返回 [program] / [findById] 回退。
+  Future<CosMiniProgram> resolveProgramForOpen(CosMiniProgram program) async {
+    if (!CosSiteStore.instance.isInitialized) return program;
+    final cookies = await _sessionCookies();
+    if (cookies.isEmpty) return program;
+    final origin = CosSiteStore.instance.origin;
+    final res = await FrappeNativeSession.callMethodGet(
+      siteOrigin: origin,
+      cookies: cookies,
+      dottedMethod: CosFrappeApiMethods.getMiniProgramLaunchConfig,
+      queryParameters: {'program_id': program.id},
+    );
+    if (res.ok && res.message is Map) {
+      final m = Map<String, dynamic>.from(res.message as Map);
+      if (m.isNotEmpty) {
+        return CosMiniProgram.fromLauncherPayload(m, origin);
+      }
+    }
+    return findById(program.id) ?? program;
+  }
+
   Future<List<Cookie>> _sessionCookies() async {
     if (!CosSiteStore.instance.isInitialized) return [];
     final prefs = await SharedPreferences.getInstance();
@@ -119,14 +142,25 @@ class CosMiniProgramCatalog extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> refreshFromServer() {
+  /// [force] 为 true 时：等待进行中的宫格请求结束后再发起新请求，避免打开小程序时复用到「尚未含最新 Desk 数据」的 in-flight Future。
+  Future<void> refreshFromServer({bool force = false}) async {
     if (!CosSiteStore.instance.isInitialized) {
-      return Future<void>.value();
+      return;
     }
-    _launcherRefreshInFlight ??= _refreshFromServerImpl().whenComplete(() {
+    if (force) {
+      while (_launcherRefreshInFlight != null) {
+        try {
+          await _launcherRefreshInFlight;
+        } catch (_) {}
+      }
+    } else if (_launcherRefreshInFlight != null) {
+      await _launcherRefreshInFlight!;
+      return;
+    }
+    _launcherRefreshInFlight = _refreshFromServerImpl().whenComplete(() {
       _launcherRefreshInFlight = null;
     });
-    return _launcherRefreshInFlight!;
+    await _launcherRefreshInFlight!;
   }
 
   Future<void> _refreshFromServerImpl() async {
