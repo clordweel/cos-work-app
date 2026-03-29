@@ -17,7 +17,7 @@ const String _kCosWorkWebViewUserAgent =
     'Chrome/120.0.0.0 Mobile Safari/537.36 CosWorkApp/1.0';
 
 /// 单个小程序运行容器；顶栏占位以站点模板 + `cos_work_shell_inset.css` 为主，首跳带 `__cos_work_shell=1`；
-/// 若服务端仍未打上壳标记则按 [CosMiniProgram.navBarInsetMode] 回退注入 CSS 变量。
+/// `safe_area` 时 WebView 自 [MediaQuery.viewPadding.top] 下缘起铺；若服务端仍未打上壳标记则按 [CosMiniProgram.navBarInsetMode] 回退注入 CSS 变量。
 class MiniProgramRunnerScreen extends StatefulWidget {
   const MiniProgramRunnerScreen({super.key, required this.program});
 
@@ -59,9 +59,13 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     };
   }
 
-  /// safe_area：WebView 通顶（与 none/app_bar 一致），配合 edge-to-edge 让页面背景延伸到状态栏区域；壳 44 仍叠在最上层。
-  double _webViewTopPx() {
-    return 0;
+  /// none / app_bar：WebView 自屏幕顶起（全宽全高叠层区由 H5 或 `--cos-content-padding-top` 处理）。
+  /// safe_area：WebView 自系统状态栏下沿起铺，与 [WeChatMiniProgramNavBar] 内 `SizedBox(height: viewPadding.top)` 一致；与 none 通顶区分。
+  double _webViewTopPx(BuildContext context) {
+    if (_p.navBarInsetMode != CosMiniProgramNavBarInsetMode.safeArea) {
+      return 0;
+    }
+    return MediaQuery.of(context).viewPadding.top;
   }
 
   /// 部分 WebView 首请求无 CosWorkApp UA 时模板不输出壳样式；仅在未检测到服务端已标记时补变量。
@@ -273,7 +277,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   @override
   Widget build(BuildContext context) {
     final shell = context.cosShell;
-    final webTop = _webViewTopPx();
+    final webTop = _webViewTopPx(context);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
