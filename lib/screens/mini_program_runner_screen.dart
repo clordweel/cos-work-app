@@ -52,13 +52,13 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   ) {
     return switch (mode) {
       CosMiniProgramNavBarInsetMode.none => 0,
-      // WebView 顶在状态栏下沿，44px 原生顶栏叠在 WebView 上；H5 用 CSS 避让 44（与回退注入一致）
-      CosMiniProgramNavBarInsetMode.safeArea => navBarPx,
+      // WebView 顶在状态栏下沿；H5 safe_area 顶留白 0，自绘栏与叠层 44 对齐（与 CSS 一致）
+      CosMiniProgramNavBarInsetMode.safeArea => 0,
       CosMiniProgramNavBarInsetMode.appBar => statusBar + navBarPx,
     };
   }
 
-  /// safe_area：WebView 顶对齐系统状态栏下沿（不再整体下移 44）；44px 顶栏叠在 WebView 上由 H5 避让。
+  /// safe_area：WebView 顶对齐系统状态栏下沿；原生 44 叠在 WebView 上，H5 用 top:0 + 自绘区高度对齐，不由整页 padding 下推。
   double _webViewTopPx(double topInset) {
     return switch (_p.navBarInsetMode) {
       CosMiniProgramNavBarInsetMode.safeArea => topInset,
