@@ -79,11 +79,21 @@ class CosMiniProgram {
   /// 查询参数 `__cos_work_shell=1` 供 Frappe 识别壳内首跳（与自定义 User-Agent 互补）。
   static const cosWorkShellQueryKey = '__cos_work_shell';
 
-  Uri launchUriFor(Uri siteOrigin) {
+  /// 与 [CosThemeModeStore] 一致：`light` | `dark` | `system`，供 H5 首帧与壳内 JS 对齐。
+  static const cosWorkThemeQueryKey = '__cos_theme';
+
+  Uri launchUriFor(
+    Uri siteOrigin, {
+    String? cosTheme,
+  }) {
     final p = launchPath.startsWith('/') ? launchPath : '/$launchPath';
     final base = siteOrigin.replace(path: p);
     final q = Map<String, String>.from(base.queryParameters);
     q[cosWorkShellQueryKey] = '1';
+    final t = (cosTheme ?? '').trim().toLowerCase();
+    if (t == 'light' || t == 'dark' || t == 'system') {
+      q[cosWorkThemeQueryKey] = t;
+    }
     return base.replace(queryParameters: q);
   }
 

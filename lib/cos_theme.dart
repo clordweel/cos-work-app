@@ -35,3 +35,34 @@ ThemeData buildCosWorkTheme() {
     ),
   );
 }
+
+ThemeData buildCosWorkDarkTheme() {
+  final colorScheme = ColorScheme.fromSeed(
+    seedColor: kCosBrandBlue,
+    brightness: Brightness.dark,
+  );
+  return ThemeData(
+    colorScheme: colorScheme,
+    useMaterial3: true,
+    extensions: const <ThemeExtension<dynamic>>[
+      CosShellTokens.dark,
+    ],
+    appBarTheme: AppBarTheme(
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      centerTitle: true,
+      backgroundColor: colorScheme.surface,
+      foregroundColor: colorScheme.onSurface,
+      surfaceTintColor: colorScheme.surfaceTint,
+      titleTextStyle: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: colorScheme.primary,
+      linearTrackColor: colorScheme.surfaceContainerHighest,
+    ),
+  );
+}

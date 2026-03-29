@@ -6,6 +6,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../auth/cos_auth_service.dart';
 import '../auth/cos_web_auth_scope.dart';
 import '../config/cos_site_store.dart';
+import '../config/cos_theme_mode_store.dart';
 import '../mini_program/cos_mini_program.dart';
 import '../mini_program/cos_mini_program_nav_bar_inset_mode.dart';
 import '../ui/cos_shell_tokens.dart';
@@ -18,6 +19,7 @@ const String _kCosWorkWebViewUserAgent =
 
 /// 单个小程序运行容器；WebView 通顶沉浸，顶栏占位以站点模板 + `cos_work_shell_inset.css` 为主，首跳带 `__cos_work_shell=1`；
 /// 若服务端未打壳标记则按 [CosMiniProgram.navBarInsetMode] 回退注入 `--cos-content-padding-top`（safe_area=仅状态栏高度，app_bar=状态栏+44）。
+/// [CosThemeModeStore] 通过 `__cos_theme` 与每页 JS 注入同步 Worker Portal / Desk 的 `html.dark` 与 Frappe 主题。
 class MiniProgramRunnerScreen extends StatefulWidget {
   const MiniProgramRunnerScreen({super.key, required this.program});
 
@@ -86,9 +88,80 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     }
   }
 
+  String _cosThemeQueryString() {
+    return switch (CosThemeModeStore.instance.themeMode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'system',
+    };
+  }
+
+  /// 与 Worker Portal `tailwind` `.dark`、Desk `frappe.ui.theme` 对齐；SPA 路由无整页刷新时依赖 [onUrlChange] 再次注入。
+  Future<void> _applyCosShellThemeScript() async {
+    if (!mounted) return;
+    final mode = _cosThemeQueryString();
+    final js = '''
+(function(){
+  try {
+    var mode = '$mode';
+    var r = document.documentElement;
+    r.setAttribute('data-cos-theme', mode);
+    if (window.__cosShellThemeListener) {
+      try {
+        window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', window.__cosShellThemeListener);
+      } catch (e) {}
+      window.__cosShellThemeListener = null;
+    }
+    function computeDark() {
+      if (mode === 'dark') return true;
+      if (mode === 'light') return false;
+      try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; }
+    }
+    function applyDark() {
+      var d = computeDark();
+      r.classList.toggle('dark', d);
+      try { if (document.body) document.body.classList.toggle('dark', d); } catch (e) {}
+      try {
+        if (typeof frappe !== 'undefined' && frappe.ui && frappe.ui.theme) {
+          if (typeof frappe.ui.theme.set_dark_theme === 'function') {
+            frappe.ui.theme.set_dark_theme(d);
+          } else if (typeof frappe.ui.theme.set_theme === 'function') {
+            frappe.ui.theme.set_theme(d ? 'dark' : 'light');
+          }
+        }
+      } catch (e) {}
+    }
+    applyDark();
+    if (mode === 'system') {
+      var listener = function() { applyDark(); };
+      window.__cosShellThemeListener = listener;
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', listener);
+    }
+  } catch (e) {}
+})();''';
+    try {
+      await _controller.runJavaScript(js);
+    } catch (e, st) {
+      debugPrint('壳主题注入失败: $e\n$st');
+    }
+  }
+
+  Future<void> _applyShellInsetAndTheme() async {
+    await _applyCosShellThemeScript();
+    await _applyShellInsetFallbackIfServerSkipped();
+  }
+
+  void _onCosThemeStoreChanged() {
+    if (!mounted) return;
+    Future<void>.microtask(() async {
+      await _applyShellInsetAndTheme();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    CosThemeModeStore.instance.addListener(_onCosThemeStoreChanged);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -110,13 +183,14 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
           onUrlChange: (UrlChange change) {
             Future<void>.microtask(() async {
               await _syncHistoryState();
+              await _applyShellInsetAndTheme();
             });
           },
           onPageFinished: (String url) async {
             debugPrint('[${_p.id}] Loaded: $url');
             if (!mounted) return;
             await _syncHistoryState();
-            await _applyShellInsetFallbackIfServerSkipped();
+            await _applyShellInsetAndTheme();
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint('[${_p.id}] WebView error: ${error.description}');
@@ -137,6 +211,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
 
   @override
   void dispose() {
+    CosThemeModeStore.instance.removeListener(_onCosThemeStoreChanged);
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
@@ -146,7 +221,10 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
 
   Future<void> _primeCookiesAndLoad() async {
     final origin = CosSiteStore.instance.origin;
-    final launch = _p.launchUriFor(origin);
+    final launch = _p.launchUriFor(
+      origin,
+      cosTheme: _cosThemeQueryString(),
+    );
     await CosAuthService.instance.ensureWebViewCookiesBeforeBrowse(primePageUrl: launch);
     if (!mounted) return;
     await _controller.loadRequest(launch);

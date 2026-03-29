@@ -18,6 +18,20 @@ class CosShellTokens extends ThemeExtension<CosShellTokens> {
     required this.capsuleRightMargin,
   });
 
+  /// 深色壳（与浅色结构一致，便于列表/导航栏对比度）。
+  static const CosShellTokens dark = CosShellTokens(
+    pageBackground: Color(0xFF111111),
+    navBarBackground: Color(0xFF1E1E1E),
+    hairline: Color(0xFF333333),
+    titleText: Color(0xE6FFFFFF),
+    secondaryText: Color(0x8CFFFFFF),
+    capsuleBorder: Color(0xFF444444),
+    capsuleIcon: Color(0xFFE8E8E8),
+    brandGreen: Color(0xFF07C160),
+    navBarTitleHorizontalPadding: 96,
+    capsuleRightMargin: 7,
+  );
+
   /// 微信小程序风格浅色默认值。
   static const CosShellTokens light = CosShellTokens(
     pageBackground: Color(0xFFEDEDED),
@@ -104,6 +118,11 @@ class CosShellTokens extends ThemeExtension<CosShellTokens> {
 }
 
 extension CosShellTokensContext on BuildContext {
-  CosShellTokens get cosShell =>
-      Theme.of(this).extension<CosShellTokens>() ?? CosShellTokens.light;
+  CosShellTokens get cosShell {
+    final ext = Theme.of(this).extension<CosShellTokens>();
+    if (ext != null) return ext;
+    return Theme.of(this).brightness == Brightness.dark
+        ? CosShellTokens.dark
+        : CosShellTokens.light;
+  }
 }

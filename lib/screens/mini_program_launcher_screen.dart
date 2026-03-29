@@ -243,7 +243,7 @@ class MiniProgramLauncherScreen extends StatelessWidget {
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
                             child: Material(
-                              color: Colors.white,
+                              color: tileShell.navBarBackground,
                               borderRadius: BorderRadius.circular(12),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),

@@ -66,7 +66,11 @@ class _MiniProgramMarketScreenState extends State<MiniProgramMarketScreen> {
                 : null;
 
             if (cat.marketLoading && !cat.marketLoaded) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(
+                child: CircularProgressIndicator(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              );
             }
 
             if (cat.marketLastError != null && !cat.marketLoaded) {
@@ -118,33 +122,9 @@ class _MiniProgramMarketScreenState extends State<MiniProgramMarketScreen> {
                 if (cat.marketLastError != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Material(
-                      color: const Color(0xFFFFF3E0),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.info_outline_rounded,
-                              size: 20,
-                              color: Colors.orange.shade900,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                '刷新未成功：${cat.marketLastError}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  height: 1.35,
-                                  color: Colors.orange.shade900,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _MarketRefreshWarningBanner(
+                      message: cat.marketLastError!,
+                      shell: listShell,
                     ),
                   ),
                 for (var i = 0; i < items.length; i++) ...[
@@ -205,6 +185,62 @@ class _MiniProgramMarketScreenState extends State<MiniProgramMarketScreen> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// 列表有数据但刷新失败时的提示条：浅色保持琥珀底，深色用琥珀叠在 surface 上，避免刺眼白底。
+class _MarketRefreshWarningBanner extends StatelessWidget {
+  const _MarketRefreshWarningBanner({
+    required this.message,
+    required this.shell,
+  });
+
+  final String message;
+  final CosShellTokens shell;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final Color bg = dark
+        ? Color.alphaBlend(
+            const Color(0xFFFFB74D).withValues(alpha: 0.28),
+            shell.navBarBackground,
+          )
+        : const Color(0xFFFFF3E0);
+    final Color fg =
+        dark ? const Color(0xFFFFE0B2) : const Color(0xFFE65100);
+    return Material(
+      color: bg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: Color.alphaBlend(
+            fg.withValues(alpha: 0.35),
+            bg,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline_rounded, size: 20, color: fg),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '刷新未成功：$message',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.35,
+                  color: fg,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -276,9 +312,15 @@ class _MarketProgramCard extends StatelessWidget {
       statusLine = '已在首页 · 由角色默认提供';
     }
 
+    final cs = Theme.of(context).colorScheme;
+
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      color: shell.navBarBackground,
+      shadowColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: shell.hairline.withValues(alpha: 0.65)),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onOpen,
@@ -359,12 +401,10 @@ class _MarketProgramCard extends StatelessWidget {
                           else if (row.userPinned)
                             TextButton(
                               onPressed: onRemove,
-                              child: Text(
-                                '移除自选',
-                                style: TextStyle(
-                                  color: Colors.red.shade700,
-                                ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: cs.error,
                               ),
+                              child: const Text('移除自选'),
                             )
                           else
                             Text(

@@ -5,6 +5,7 @@ import 'config/app_brand.dart';
 import 'auth/cos_auth_service.dart';
 import 'auth/cos_login_history_store.dart';
 import 'config/cos_site_store.dart';
+import 'config/cos_theme_mode_store.dart';
 import 'cos_theme.dart';
 import 'routing/app_routes.dart';
 import 'screens/biometric_gate_screen.dart';
@@ -47,6 +48,7 @@ class _CosWorkAppState extends State<CosWorkApp> {
   }
 
   Future<void> _boot() async {
+    await CosThemeModeStore.instance.init();
     await CosSiteStore.instance.init();
     await CosLoginHistoryStore.instance.init();
     await CosAuthService.instance.bootstrap();
@@ -56,16 +58,27 @@ class _CosWorkAppState extends State<CosWorkApp> {
   @override
   Widget build(BuildContext context) {
     if (!_bootComplete) {
-      return MaterialApp(
-        title: kAppDisplayName,
-        theme: buildCosWorkTheme(),
-        home: const CosBootSplashScreen(),
+      return ListenableBuilder(
+        listenable: CosThemeModeStore.instance,
+        builder: (context, _) {
+          return MaterialApp(
+            title: kAppDisplayName,
+            theme: buildCosWorkTheme(),
+            darkTheme: buildCosWorkDarkTheme(),
+            themeMode: CosThemeModeStore.instance.themeMode,
+            home: const CosBootSplashScreen(),
+          );
+        },
       );
     }
 
     final auth = CosAuthService.instance;
     return ListenableBuilder(
-      listenable: Listenable.merge([auth, CosSiteStore.instance]),
+      listenable: Listenable.merge([
+        auth,
+        CosSiteStore.instance,
+        CosThemeModeStore.instance,
+      ]),
       builder: (context, _) {
         return MaterialApp(
           // 登录态变化时重建 Navigator，清掉 UserCenter / 历史登录 等压栈页面，立刻回到根登录页。
@@ -74,6 +87,8 @@ class _CosWorkAppState extends State<CosWorkApp> {
           ),
           title: kAppDisplayName,
           theme: buildCosWorkTheme(),
+          darkTheme: buildCosWorkDarkTheme(),
+          themeMode: CosThemeModeStore.instance.themeMode,
           home: !auth.isLoggedIn
               ? const LoginScreen()
               : auth.needsBiometricUnlock
