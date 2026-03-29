@@ -6,7 +6,6 @@ import '../auth/cos_auth_service.dart';
 import '../auth/cos_web_auth_scope.dart';
 import '../config/cos_site_store.dart';
 import '../mini_program/cos_mini_program.dart';
-import '../mini_program/cos_mini_program_nav_bar_inset_mode.dart';
 import '../ui/cos_shell_tokens.dart';
 import '../wechat_ui/wechat_mini_program_nav_bar.dart';
 
@@ -15,7 +14,7 @@ const String _kCosWorkWebViewUserAgent =
     'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) '
     'Chrome/120.0.0.0 Mobile Safari/537.36 CosWorkApp/1.0';
 
-/// 单个小程序运行容器：顶栏随 DocType「壳内顶栏占位」变化；加载中为屏中动画。
+/// 单个小程序运行容器；顶栏占位由站点 `cos_work_shell_inset.css` + 路径解析的 nav_bar_inset_mode 驱动（弱化壳内 JS 注入）。
 class MiniProgramRunnerScreen extends StatefulWidget {
   const MiniProgramRunnerScreen({super.key, required this.program});
 
@@ -36,34 +35,6 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
 
   CosMiniProgram get _p => widget.program;
 
-  static String _insetModeDataAttr(CosMiniProgramNavBarInsetMode m) {
-    switch (m) {
-      case CosMiniProgramNavBarInsetMode.none:
-        return 'none';
-      case CosMiniProgramNavBarInsetMode.statusBarOnly:
-        return 'status_bar_only';
-      case CosMiniProgramNavBarInsetMode.appProvided:
-        return 'app_provided';
-      case CosMiniProgramNavBarInsetMode.pageCustom:
-        return 'page_custom';
-    }
-  }
-
-  static double _contentPaddingTopPx(
-    CosMiniProgramNavBarInsetMode mode,
-    double statusBar,
-  ) {
-    switch (mode) {
-      case CosMiniProgramNavBarInsetMode.none:
-      case CosMiniProgramNavBarInsetMode.pageCustom:
-        return 0;
-      case CosMiniProgramNavBarInsetMode.statusBarOnly:
-        return statusBar;
-      case CosMiniProgramNavBarInsetMode.appProvided:
-        return statusBar + WeChatMiniProgramNavBar.barHeight;
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -83,7 +54,6 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
             setState(() {
               _loadError = null;
             });
-            Future<void>.microtask(() => _injectShellLayoutCssVars());
           },
           onUrlChange: (UrlChange change) {
             Future<void>.microtask(() async {
@@ -92,7 +62,6 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
           },
           onPageFinished: (String url) async {
             debugPrint('[${_p.id}] Loaded: $url');
-            await _injectShellLayoutCssVars();
             if (!mounted) return;
             await _syncHistoryState();
           },
@@ -111,31 +80,6 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
       if (!mounted) return;
       await _primeCookiesAndLoad();
     });
-  }
-
-  /// 与 H5 约定：`--cos-content-padding-top` 为页面主内容区顶留白；`--cos-status-bar-height` /
-  /// `--cos-nav-bar-height` 供页面自定义模式选用。`nav_bar_inset_mode` 由 DocType 配置。
-  Future<void> _injectShellLayoutCssVars() async {
-    if (!mounted) return;
-    final double statusBar = MediaQuery.paddingOf(context).top;
-    final double navBarPx = WeChatMiniProgramNavBar.barHeight;
-    final double contentPad = _contentPaddingTopPx(_p.navBarInsetMode, statusBar);
-    final String modeAttr = _insetModeDataAttr(_p.navBarInsetMode);
-    final String js = '''
-(function(){
-  try {
-    var r = document.documentElement;
-    r.style.setProperty('--cos-status-bar-height', '${statusBar}px');
-    r.style.setProperty('--cos-nav-bar-height', '${navBarPx}px');
-    r.style.setProperty('--cos-content-padding-top', '${contentPad}px');
-    r.setAttribute('data-cos-shell-inset-mode', '$modeAttr');
-  } catch (e) {}
-})();''';
-    try {
-      await _controller.runJavaScript(js);
-    } catch (e, st) {
-      debugPrint('Shell layout CSS vars 注入失败: $e\n$st');
-    }
   }
 
   Future<void> _primeCookiesAndLoad() async {

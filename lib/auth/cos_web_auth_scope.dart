@@ -11,7 +11,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 ///   [MethodChannel]，Cookie 属性串用 [Cookie.toString] 与服务端一致）；[CosAuthService] 会
 ///   持久化 Cookie 快照，并在打开小程序 WebView **首跳前**再次 [CosAuthService.ensureWebViewCookiesBeforeBrowse]。
 /// - `/worker-portal/*` 与 `/desk` 相同：依赖 [CosAuthService.ensureWebViewCookiesBeforeBrowse] 预灌
-///   Frappe Cookie，不再使用 `wpt.` Bearer / `localStorage` 注入。User-Agent 仍含 `CosWorkApp` 供前端识别壳。
+///   Frappe Cookie，不再使用 `wpt.` Bearer / `localStorage` 注入。User-Agent 仍含 `CosWorkApp`，供站点模板与
+///   `cos_work_shell_inset.css` 解析顶栏占位（弱化 [MiniProgramRunnerScreen] 内 JS 注入）。
 ///
 /// **后续若出现以下情况，再升级此模块**
 /// - 小程序改为 **不同子域**（如 `a.junhai.work` 与 `b.junhai.work`）→ 需 Cookie 同步、
