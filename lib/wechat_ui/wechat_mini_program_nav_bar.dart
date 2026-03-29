@@ -115,34 +115,34 @@ class WeChatMiniProgramNavBar extends StatelessWidget {
     if (showTitle) {
       bar = SizedBox(
         height: barHeight,
-        child: Stack(
-          alignment: Alignment.center,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: shell.navBarTitleHorizontalPadding,
-              ),
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: titleStyle,
-              ),
-            ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                backSlot,
-                const Spacer(),
-                Padding(
-                  padding: EdgeInsets.only(right: shell.capsuleRightMargin),
-                  child: WeChatMiniProgramCapsule(
-                    onMore: onCapsuleMore,
-                    onClose: onCapsuleClose,
+            backSlot,
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: showBackChevron ? 4 : 0,
+                  right: 8,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.start,
+                    style: titleStyle,
                   ),
                 ),
-              ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(right: shell.capsuleRightMargin),
+              child: WeChatMiniProgramCapsule(
+                onMore: onCapsuleMore,
+                onClose: onCapsuleClose,
+              ),
             ),
           ],
         ),

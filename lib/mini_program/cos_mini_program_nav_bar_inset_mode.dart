@@ -3,10 +3,10 @@ enum CosMiniProgramNavBarInsetMode {
   /// 无额外顶栏占位（H5 自顶向下排；可能与系统状态栏重叠，慎用）
   none,
 
-  /// 仅状态栏高度：壳内不叠 44px 仿微信条，H5 仅预留状态栏区（壳上保留紧凑返回/关闭）
+  /// App 将 WebView 布局在原生顶栏之下；H5 `--cos-content-padding-top` 为 0。
   statusBarOnly,
 
-  /// App 提供状态栏 + 仿微信顶栏（44），与 Worker Portal 默认布局一致
+  /// WebView 全屏叠在顶栏下；H5 须 `安全区+44px` 顶留白。
   appProvided,
 
   /// 页面自定义：不注入顶栏占位，由 H5 自行处理；仍注入 `--cos-status-bar-height` 等变量供选用
@@ -22,7 +22,8 @@ CosMiniProgramNavBarInsetMode parseNavBarInsetMode(String? raw) {
     case 'page_custom':
       return CosMiniProgramNavBarInsetMode.pageCustom;
     case 'app_provided':
-    default:
       return CosMiniProgramNavBarInsetMode.appProvided;
+    default:
+      return CosMiniProgramNavBarInsetMode.statusBarOnly;
   }
 }

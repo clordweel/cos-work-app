@@ -25,7 +25,7 @@ class CosMiniProgram {
     this.serverDocName,
     this.programEnabled = true,
     this.userPinnedOnLauncher = false,
-    this.navBarInsetMode = CosMiniProgramNavBarInsetMode.appProvided,
+    this.navBarInsetMode = CosMiniProgramNavBarInsetMode.statusBarOnly,
     /// 为 false 时根页也不显示壳顶栏居中标题（H5 自绘标题/搜索时可关）。
     this.showNavBarTitle = true,
   }) : materialIcon = icon;

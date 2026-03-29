@@ -54,8 +54,17 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     return switch (mode) {
       CosMiniProgramNavBarInsetMode.none => 0,
       CosMiniProgramNavBarInsetMode.pageCustom => 0,
-      CosMiniProgramNavBarInsetMode.statusBarOnly => statusBar,
+      // WebView 已下推至顶栏下，与 cos_work_shell_inset.css 中 status_bar_only 的 0 一致
+      CosMiniProgramNavBarInsetMode.statusBarOnly => 0,
       CosMiniProgramNavBarInsetMode.appProvided => statusBar + navBarPx,
+    };
+  }
+
+  /// status_bar_only：WebView 从原生顶栏下方开始，与 H5 顶留白 0 配套。
+  bool get _webViewFullBleedUnderNav {
+    return switch (_p.navBarInsetMode) {
+      CosMiniProgramNavBarInsetMode.statusBarOnly => false,
+      _ => true,
     };
   }
 
@@ -274,9 +283,18 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
           fit: StackFit.expand,
           clipBehavior: Clip.none,
           children: [
-            Positioned.fill(
-              child: WebViewWidget(controller: _controller),
-            ),
+            if (_webViewFullBleedUnderNav)
+              Positioned.fill(
+                child: WebViewWidget(controller: _controller),
+              )
+            else
+              Positioned(
+                top: chromeTop,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: WebViewWidget(controller: _controller),
+              ),
             if (_showCenterLoading)
               Positioned(
                 top: chromeTop,
