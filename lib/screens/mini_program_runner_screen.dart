@@ -16,8 +16,8 @@ const String _kCosWorkWebViewUserAgent =
     'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) '
     'Chrome/120.0.0.0 Mobile Safari/537.36 CosWorkApp/1.0';
 
-/// 单个小程序运行容器；顶栏占位以站点模板 + `cos_work_shell_inset.css` 为主，首跳带 `__cos_work_shell=1`；
-/// `safe_area` 时 WebView 自 [MediaQuery.viewPadding.top] 下缘起铺；若服务端仍未打上壳标记则按 [CosMiniProgram.navBarInsetMode] 回退注入 CSS 变量。
+/// 单个小程序运行容器；WebView 通顶沉浸，顶栏占位以站点模板 + `cos_work_shell_inset.css` 为主，首跳带 `__cos_work_shell=1`；
+/// 若服务端未打壳标记则按 [CosMiniProgram.navBarInsetMode] 回退注入 `--cos-content-padding-top`（safe_area=仅状态栏高度，app_bar=状态栏+44）。
 class MiniProgramRunnerScreen extends StatefulWidget {
   const MiniProgramRunnerScreen({super.key, required this.program});
 
@@ -53,19 +53,10 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   ) {
     return switch (mode) {
       CosMiniProgramNavBarInsetMode.none => 0,
-      // WebView 顶在状态栏下沿；H5 safe_area 顶留白 0，自绘栏与叠层 44 对齐（与 CSS 一致）
-      CosMiniProgramNavBarInsetMode.safeArea => 0,
+      // 与 CSS safe_area：`--cos-content-padding-top` = env(safe-area)，不含 44px
+      CosMiniProgramNavBarInsetMode.safeArea => statusBar,
       CosMiniProgramNavBarInsetMode.appBar => statusBar + navBarPx,
     };
-  }
-
-  /// none / app_bar：WebView 自屏幕顶起（全宽全高叠层区由 H5 或 `--cos-content-padding-top` 处理）。
-  /// safe_area：WebView 自系统状态栏下沿起铺，与 [WeChatMiniProgramNavBar] 内 `SizedBox(height: viewPadding.top)` 一致；与 none 通顶区分。
-  double _webViewTopPx(BuildContext context) {
-    if (_p.navBarInsetMode != CosMiniProgramNavBarInsetMode.safeArea) {
-      return 0;
-    }
-    return MediaQuery.of(context).viewPadding.top;
   }
 
   /// 部分 WebView 首请求无 CosWorkApp UA 时模板不输出壳样式；仅在未检测到服务端已标记时补变量。
@@ -277,7 +268,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   @override
   Widget build(BuildContext context) {
     final shell = context.cosShell;
-    final webTop = _webViewTopPx(context);
+    const double webTop = 0;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(

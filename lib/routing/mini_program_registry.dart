@@ -35,6 +35,8 @@ abstract final class MiniProgramRegistry {
     authKind: CosMiniProgramAuthKind.frappeSession,
   );
 
+  /// 壳顶栏占位、是否显示标题、实际入口路径以 Frappe「COS Work Mini Program」与
+  /// `get_mini_program_launch_config` 为准；此处仅作离线/请求失败时的占位。
   static final CosMiniProgram deskHome = CosMiniProgram(
     id: 'desk_home',
     title: '工作台',
