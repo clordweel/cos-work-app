@@ -48,7 +48,8 @@ class WeChatMiniProgramNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = context.cosShell;
-    final top = MediaQuery.paddingOf(context).top;
+    // 全面屏/edge-to-edge 下 padding.top 常为 0，viewPadding 仍为真实状态栏高度
+    final top = MediaQuery.of(context).viewPadding.top;
 
     final titleStyle = TextStyle(
       fontSize: 17,

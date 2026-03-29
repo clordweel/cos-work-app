@@ -52,23 +52,24 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   ) {
     return switch (mode) {
       CosMiniProgramNavBarInsetMode.none => 0,
-      CosMiniProgramNavBarInsetMode.statusBar => 0,
+      // WebView 已从系统状态栏下沿起算，H5 只需避让叠在上面的 44px 顶栏
+      CosMiniProgramNavBarInsetMode.statusBar => navBarPx,
       CosMiniProgramNavBarInsetMode.appBar => statusBar + navBarPx,
     };
   }
 
-  /// status_bar：WebView 从原生顶栏下方开始，与 H5 顶留白 0 配套。
-  bool get _webViewFullBleedUnderNav {
+  /// status_bar：WebView 顶对齐系统状态栏下沿，全屏叠在下的 44px 顶栏由 H5 用 --cos-content-padding-top 避让。
+  double _webViewTopPx(double topInset) {
     return switch (_p.navBarInsetMode) {
-      CosMiniProgramNavBarInsetMode.statusBar => false,
-      _ => true,
+      CosMiniProgramNavBarInsetMode.statusBar => topInset,
+      _ => 0,
     };
   }
 
   /// 部分 WebView 首请求无 CosWorkApp UA 时模板不输出壳样式；仅在未检测到服务端已标记时补变量。
   Future<void> _applyShellInsetFallbackIfServerSkipped() async {
     if (!mounted) return;
-    final statusBar = MediaQuery.paddingOf(context).top;
+    final statusBar = MediaQuery.of(context).viewPadding.top;
     final navBarPx = WeChatMiniProgramNavBar.barHeight;
     final modeStr = _shellInsetModeAttr(_p.navBarInsetMode);
     final contentPad =
@@ -264,9 +265,9 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   @override
   Widget build(BuildContext context) {
     final shell = context.cosShell;
-    final topInset = MediaQuery.paddingOf(context).top;
-    final double chromeTop =
-        topInset + WeChatMiniProgramNavBar.barHeight;
+    // 与 WeChatMiniProgramNavBar 一致：用 viewPadding 适配全面屏 edge-to-edge
+    final topInset = MediaQuery.of(context).viewPadding.top;
+    final webTop = _webViewTopPx(topInset);
 
     return PopScope(
       canPop: false,
@@ -280,21 +281,16 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
           fit: StackFit.expand,
           clipBehavior: Clip.none,
           children: [
-            if (_webViewFullBleedUnderNav)
-              Positioned.fill(
-                child: WebViewWidget(controller: _controller),
-              )
-            else
-              Positioned(
-                top: chromeTop,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: WebViewWidget(controller: _controller),
-              ),
+            Positioned(
+              top: webTop,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: WebViewWidget(controller: _controller),
+            ),
             if (_showCenterLoading)
               Positioned(
-                top: chromeTop,
+                top: webTop,
                 left: 0,
                 right: 0,
                 bottom: 0,
