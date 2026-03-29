@@ -52,16 +52,16 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   ) {
     return switch (mode) {
       CosMiniProgramNavBarInsetMode.none => 0,
-      // WebView 已在状态栏+44 之下，H5 仅用 WebView 内 safe-area（由 CSS 变量表达；回退注入 0）
-      CosMiniProgramNavBarInsetMode.safeArea => 0,
+      // WebView 顶在状态栏下沿，44px 原生顶栏叠在 WebView 上；H5 用 CSS 避让 44（与回退注入一致）
+      CosMiniProgramNavBarInsetMode.safeArea => navBarPx,
       CosMiniProgramNavBarInsetMode.appBar => statusBar + navBarPx,
     };
   }
 
-  /// safe_area：WebView 顶对齐「状态栏 + 44px 顶栏」下沿；H5 不再为 44 留白。
-  double _webViewTopPx(double topInset, double navBarPx) {
+  /// safe_area：WebView 顶对齐系统状态栏下沿（不再整体下移 44）；44px 顶栏叠在 WebView 上由 H5 避让。
+  double _webViewTopPx(double topInset) {
     return switch (_p.navBarInsetMode) {
-      CosMiniProgramNavBarInsetMode.safeArea => topInset + navBarPx,
+      CosMiniProgramNavBarInsetMode.safeArea => topInset,
       _ => 0,
     };
   }
@@ -267,8 +267,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     final shell = context.cosShell;
     // 与 WeChatMiniProgramNavBar 一致：用 viewPadding 适配全面屏 edge-to-edge
     final topInset = MediaQuery.of(context).viewPadding.top;
-    final navBarPx = WeChatMiniProgramNavBar.barHeight.toDouble();
-    final webTop = _webViewTopPx(topInset, navBarPx);
+    final webTop = _webViewTopPx(topInset);
 
     return PopScope(
       canPop: false,

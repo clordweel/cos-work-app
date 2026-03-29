@@ -4,7 +4,7 @@ enum CosMiniProgramNavBarInsetMode {
   /// 不预留顶栏区（WebView 全屏叠在顶栏下，H5 顶留白 0）
   none,
 
-  /// App 将 WebView 置于状态栏与 44px 顶栏之下；H5 仅 `--cos-shell-safe-top`（env(safe-area-inset-top)）
+  /// WebView 顶对齐状态栏下沿（App 不对 WebView 做额外 44 下移）；H5 避让叠层 44px 顶栏（`--cos-nav-bar-height`）
   safeArea,
 
   /// WebView 全屏叠在顶栏下，H5 须 安全区+44px
