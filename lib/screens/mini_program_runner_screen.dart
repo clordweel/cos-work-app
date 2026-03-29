@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -58,12 +59,9 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     };
   }
 
-  /// safe_area：WebView 顶对齐系统状态栏下沿；原生 44 叠在 WebView 上，H5 用 top:0 + 自绘区高度对齐，不由整页 padding 下推。
-  double _webViewTopPx(double topInset) {
-    return switch (_p.navBarInsetMode) {
-      CosMiniProgramNavBarInsetMode.safeArea => topInset,
-      _ => 0,
-    };
+  /// safe_area：WebView 通顶（与 none/app_bar 一致），配合 edge-to-edge 让页面背景延伸到状态栏区域；壳 44 仍叠在最上层。
+  double _webViewTopPx() {
+    return 0;
   }
 
   /// 部分 WebView 首请求无 CosWorkApp UA 时模板不输出壳样式；仅在未检测到服务端已标记时补变量。
@@ -96,6 +94,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -139,6 +138,15 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
       if (!mounted) return;
       await _primeCookiesAndLoad();
     });
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+    super.dispose();
   }
 
   Future<void> _primeCookiesAndLoad() async {
@@ -265,19 +273,25 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   @override
   Widget build(BuildContext context) {
     final shell = context.cosShell;
-    // 与 WeChatMiniProgramNavBar 一致：用 viewPadding 适配全面屏 edge-to-edge
-    final topInset = MediaQuery.of(context).viewPadding.top;
-    final webTop = _webViewTopPx(topInset);
+    final webTop = _webViewTopPx();
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (bool didPop, Object? result) {
-        if (didPop) return;
-        _onBackOrSystemPop();
-      },
-      child: Scaffold(
-        backgroundColor: shell.pageBackground,
-        body: Stack(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, Object? result) {
+          if (didPop) return;
+          _onBackOrSystemPop();
+        },
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Stack(
           fit: StackFit.expand,
           clipBehavior: Clip.none,
           children: [
@@ -372,6 +386,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
