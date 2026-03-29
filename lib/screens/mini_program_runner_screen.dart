@@ -40,9 +40,8 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   static String _shellInsetModeAttr(CosMiniProgramNavBarInsetMode m) {
     return switch (m) {
       CosMiniProgramNavBarInsetMode.none => 'none',
-      CosMiniProgramNavBarInsetMode.statusBarOnly => 'status_bar_only',
-      CosMiniProgramNavBarInsetMode.appProvided => 'app_provided',
-      CosMiniProgramNavBarInsetMode.pageCustom => 'page_custom',
+      CosMiniProgramNavBarInsetMode.statusBar => 'status_bar',
+      CosMiniProgramNavBarInsetMode.appBar => 'app_bar',
     };
   }
 
@@ -53,17 +52,15 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   ) {
     return switch (mode) {
       CosMiniProgramNavBarInsetMode.none => 0,
-      CosMiniProgramNavBarInsetMode.pageCustom => 0,
-      // WebView 已下推至顶栏下，与 cos_work_shell_inset.css 中 status_bar_only 的 0 一致
-      CosMiniProgramNavBarInsetMode.statusBarOnly => 0,
-      CosMiniProgramNavBarInsetMode.appProvided => statusBar + navBarPx,
+      CosMiniProgramNavBarInsetMode.statusBar => 0,
+      CosMiniProgramNavBarInsetMode.appBar => statusBar + navBarPx,
     };
   }
 
-  /// status_bar_only：WebView 从原生顶栏下方开始，与 H5 顶留白 0 配套。
+  /// status_bar：WebView 从原生顶栏下方开始，与 H5 顶留白 0 配套。
   bool get _webViewFullBleedUnderNav {
     return switch (_p.navBarInsetMode) {
-      CosMiniProgramNavBarInsetMode.statusBarOnly => false,
+      CosMiniProgramNavBarInsetMode.statusBar => false,
       _ => true,
     };
   }
