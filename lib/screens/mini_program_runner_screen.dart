@@ -6,6 +6,7 @@ import '../auth/cos_auth_service.dart';
 import '../auth/cos_web_auth_scope.dart';
 import '../config/cos_site_store.dart';
 import '../mini_program/cos_mini_program.dart';
+import '../mini_program/cos_mini_program_nav_bar_inset_mode.dart';
 import '../ui/cos_shell_tokens.dart';
 import '../wechat_ui/wechat_mini_program_nav_bar.dart';
 
@@ -14,7 +15,8 @@ const String _kCosWorkWebViewUserAgent =
     'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) '
     'Chrome/120.0.0.0 Mobile Safari/537.36 CosWorkApp/1.0';
 
-/// 单个小程序运行容器；顶栏占位由站点 `cos_work_shell_inset.css` + 路径解析的 nav_bar_inset_mode 驱动（弱化壳内 JS 注入）。
+/// 单个小程序运行容器；顶栏占位以站点模板 + `cos_work_shell_inset.css` 为主，首跳带 `__cos_work_shell=1`；
+/// 若服务端仍未打上壳标记则按 [CosMiniProgram.navBarInsetMode] 回退注入 CSS 变量。
 class MiniProgramRunnerScreen extends StatefulWidget {
   const MiniProgramRunnerScreen({super.key, required this.program});
 
@@ -34,6 +36,55 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   String? _loadError;
 
   CosMiniProgram get _p => widget.program;
+
+  static String _shellInsetModeAttr(CosMiniProgramNavBarInsetMode m) {
+    return switch (m) {
+      CosMiniProgramNavBarInsetMode.none => 'none',
+      CosMiniProgramNavBarInsetMode.statusBarOnly => 'status_bar_only',
+      CosMiniProgramNavBarInsetMode.appProvided => 'app_provided',
+      CosMiniProgramNavBarInsetMode.pageCustom => 'page_custom',
+    };
+  }
+
+  static double _shellContentPaddingTopPx(
+    CosMiniProgramNavBarInsetMode mode,
+    double statusBar,
+    double navBarPx,
+  ) {
+    return switch (mode) {
+      CosMiniProgramNavBarInsetMode.none => 0,
+      CosMiniProgramNavBarInsetMode.pageCustom => 0,
+      CosMiniProgramNavBarInsetMode.statusBarOnly => statusBar,
+      CosMiniProgramNavBarInsetMode.appProvided => statusBar + navBarPx,
+    };
+  }
+
+  /// 部分 WebView 首请求无 CosWorkApp UA 时模板不输出壳样式；仅在未检测到服务端已标记时补变量。
+  Future<void> _applyShellInsetFallbackIfServerSkipped() async {
+    if (!mounted) return;
+    final statusBar = MediaQuery.paddingOf(context).top;
+    final navBarPx = WeChatMiniProgramNavBar.barHeight;
+    final modeStr = _shellInsetModeAttr(_p.navBarInsetMode);
+    final contentPad =
+        _shellContentPaddingTopPx(_p.navBarInsetMode, statusBar, navBarPx);
+    final js = '''
+(function(){
+  try {
+    var r = document.documentElement;
+    if (r.getAttribute('data-cos-work-app-shell') === '1') return;
+    r.setAttribute('data-cos-work-app-shell','1');
+    r.setAttribute('data-cos-shell-inset-mode','$modeStr');
+    r.style.setProperty('--cos-status-bar-height', '${statusBar}px');
+    r.style.setProperty('--cos-nav-bar-height', '${navBarPx}px');
+    r.style.setProperty('--cos-content-padding-top', '${contentPad}px');
+  } catch (e) {}
+})();''';
+    try {
+      await _controller.runJavaScript(js);
+    } catch (e, st) {
+      debugPrint('壳顶栏占位回退注入失败: $e\n$st');
+    }
+  }
 
   @override
   void initState() {
@@ -64,6 +115,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
             debugPrint('[${_p.id}] Loaded: $url');
             if (!mounted) return;
             await _syncHistoryState();
+            await _applyShellInsetFallbackIfServerSkipped();
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint('[${_p.id}] WebView error: ${error.description}');

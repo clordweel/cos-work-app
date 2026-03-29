@@ -76,9 +76,15 @@ class CosMiniProgram {
     return null;
   }
 
+  /// 查询参数 `__cos_work_shell=1` 供 Frappe 识别壳内首跳（与自定义 User-Agent 互补）。
+  static const cosWorkShellQueryKey = '__cos_work_shell';
+
   Uri launchUriFor(Uri siteOrigin) {
     final p = launchPath.startsWith('/') ? launchPath : '/$launchPath';
-    return siteOrigin.replace(path: p, queryParameters: {});
+    final base = siteOrigin.replace(path: p);
+    final q = Map<String, String>.from(base.queryParameters);
+    q[cosWorkShellQueryKey] = '1';
+    return base.replace(queryParameters: q);
   }
 
   static CosMiniProgramAuthKind _parseAuthKind(String? _) {
