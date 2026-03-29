@@ -154,10 +154,12 @@ class _MiniProgramMarketScreenState extends State<MiniProgramMarketScreen> {
                     siteOrigin: origin,
                     actionDoc: _actionDoc,
                     busyHint: _busyHint,
-                    onOpen: () => CosNavigation.openMiniProgram(
-                      context,
-                      items[i].program,
-                    ),
+                    onOpen: () async {
+                      await CosNavigation.openMiniProgram(
+                        context,
+                        items[i].program,
+                      );
+                    },
                     onAdd: items[i].program.serverDocName == null
                         ? null
                         : () {

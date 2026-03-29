@@ -12,6 +12,7 @@ abstract final class MiniProgramRegistry {
     icon: Icons.fact_check_outlined,
     accentColor: const Color(0xFF1565C0),
     authKind: CosMiniProgramAuthKind.workerPortalToken,
+    showNavBarTitle: false,
   );
 
   static final CosMiniProgram piReimbursementApproval = CosMiniProgram(

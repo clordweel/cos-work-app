@@ -357,7 +357,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
                 children: [
                   WeChatMiniProgramNavBar(
                     immersive: true,
-                    showTitle: !_canGoBack,
+                    showTitle: _p.showNavBarTitle && !_canGoBack,
                     title: _p.title,
                     showBackChevron: _canGoBack,
                     onBack: _onBackOrSystemPop,

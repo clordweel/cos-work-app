@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../config/app_brand.dart';
-import '../cos_theme.dart';
 
 /// 冷启动占位：纯色背景、居中图标与底部细进度条（简洁，无装饰阴影）。
 class CosBootSplashScreen extends StatefulWidget {
@@ -56,14 +55,25 @@ class _CosBootSplashScreenState extends State<CosBootSplashScreen>
             const SizedBox(height: 24),
             Text(
               kAppDisplayName,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.3,
-                color: kCosBrandBlue.withValues(alpha: 0.92),
+                color: Colors.black,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
+            Text(
+              kAppSlogan,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.35,
+                letterSpacing: 0.2,
+                color: Colors.black.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 10),
             Text(
               '正在启动…',
               style: TextStyle(

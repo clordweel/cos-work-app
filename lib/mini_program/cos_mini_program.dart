@@ -29,6 +29,8 @@ class CosMiniProgram {
     this.programEnabled = true,
     this.userPinnedOnLauncher = false,
     this.navBarInsetMode = CosMiniProgramNavBarInsetMode.appProvided,
+    /// 为 false 时根页也不显示壳顶栏居中标题（H5 自绘标题/搜索时可关）。
+    this.showNavBarTitle = true,
   }) : materialIcon = icon;
 
   final String id;
@@ -60,6 +62,9 @@ class CosMiniProgram {
 
   /// 壳内 H5 顶栏占位策略（与 DocType `nav_bar_inset_mode` 一致）。
   final CosMiniProgramNavBarInsetMode navBarInsetMode;
+
+  /// 是否在 [WeChatMiniProgramNavBar] 中显示居中标题（与 `showTitle: !_canGoBack` 组合使用）。
+  final bool showNavBarTitle;
 
   /// 解析后的可加载 URL；相对路径基于 [siteOrigin]。
   String? resolvedIconUrl(Uri siteOrigin) {
@@ -98,6 +103,13 @@ class CosMiniProgram {
     final v = m['user_pinned'];
     if (v == true || v == 1 || v == '1') return true;
     return false;
+  }
+
+  static bool _parseShowNavBarTitle(Map<String, dynamic> m) {
+    if (!m.containsKey('show_nav_bar_title')) return true;
+    final v = m['show_nav_bar_title'];
+    if (v == false || v == 0 || v == '0') return false;
+    return true;
   }
 
   static Color? _parseAccent(String? raw) {
@@ -143,6 +155,7 @@ class CosMiniProgram {
       programEnabled: _parseProgramEnabled(m),
       userPinnedOnLauncher: _parseUserPinned(m),
       navBarInsetMode: parseNavBarInsetMode(m['nav_bar_inset_mode']?.toString()),
+      showNavBarTitle: _parseShowNavBarTitle(m),
     );
   }
 }

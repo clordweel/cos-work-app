@@ -156,10 +156,12 @@ class UserCenterScreen extends StatelessWidget {
                 icon: Icons.dashboard_outlined,
                 title: '工作台',
                 subtitle: '在应用内打开完整管理界面',
-                onTap: () => CosNavigation.openMiniProgram(
-                  context,
-                  MiniProgramRegistry.deskHome,
-                ),
+                onTap: () async {
+                  await CosNavigation.openMiniProgram(
+                    context,
+                    MiniProgramRegistry.deskHome,
+                  );
+                },
               ),
               _NativeTile(
                 icon: Icons.swap_horiz_rounded,

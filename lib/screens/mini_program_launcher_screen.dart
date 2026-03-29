@@ -186,7 +186,7 @@ class MiniProgramLauncherScreen extends StatelessWidget {
                                 return _WeChatStylePortalTile(
                                   program: mp,
                                   siteOrigin: origin,
-                                  onOpen: () {
+                                  onOpen: () async {
                                     if (!mp.programEnabled) {
                                       ScaffoldMessenger.of(context)
                                           .showSnackBar(
@@ -198,7 +198,7 @@ class MiniProgramLauncherScreen extends StatelessWidget {
                                       );
                                       return;
                                     }
-                                    CosNavigation.openMiniProgram(
+                                    await CosNavigation.openMiniProgram(
                                       context,
                                       mp,
                                     );
@@ -333,7 +333,7 @@ class _WeChatStyleLauncherHeader extends StatelessWidget {
                           Text(
                             kAppDisplayName,
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: shell.titleText,
                             ),
