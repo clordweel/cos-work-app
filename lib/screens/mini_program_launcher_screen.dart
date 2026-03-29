@@ -46,6 +46,29 @@ void _showLauncherProgramManageSheet(
                 CosNavigation.openMiniProgramMarket(context);
               },
             ),
+            ListTile(
+              leading: Icon(
+                Icons.sync_outlined,
+                color: shell.capsuleIcon,
+              ),
+              title: const Text('更新配置'),
+              subtitle: const Text(
+                '从站点重新拉取本入口（顶栏占位、标题等）；并刷新首页宫格列表',
+              ),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final err = await CosMiniProgramCatalog.instance
+                    .refreshLauncherEntryFromSite(program);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      err ?? '已更新「${program.title}」及宫格配置',
+                    ),
+                  ),
+                );
+              },
+            ),
             const Divider(height: 1),
             if (program.serverDocName == null)
               ListTile(

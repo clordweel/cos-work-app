@@ -11,7 +11,7 @@ abstract final class MiniProgramRegistry {
     launchPath: '/worker-portal/pi-reimbursement-pending',
     icon: Icons.fact_check_outlined,
     accentColor: const Color(0xFF1565C0),
-    authKind: CosMiniProgramAuthKind.workerPortalToken,
+    authKind: CosMiniProgramAuthKind.frappeSession,
     showNavBarTitle: false,
   );
 
@@ -22,7 +22,7 @@ abstract final class MiniProgramRegistry {
     launchPath: '/worker-portal/pi-reimbursement-approval',
     icon: Icons.link_outlined,
     accentColor: const Color(0xFF5E35B1),
-    authKind: CosMiniProgramAuthKind.workerPortalToken,
+    authKind: CosMiniProgramAuthKind.frappeSession,
   );
 
   static final CosMiniProgram stockReconciliation = CosMiniProgram(
@@ -49,7 +49,7 @@ abstract final class MiniProgramRegistry {
   static final CosMiniProgram shellNetworkDebug = CosMiniProgram(
     id: 'shell_network_debug',
     title: '调试·网络认证',
-    subtitle: '站点 / sid / wpt / RPC',
+    subtitle: '站点 / sid / Cookie / RPC',
     launchPath: '/__shell_debug__',
     icon: Icons.bug_report_outlined,
     accentColor: const Color(0xFF6D4C41),

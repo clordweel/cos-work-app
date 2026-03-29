@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../config/cos_frappe_api_methods.dart';
 import 'cos_auth_service.dart';
+import 'frappe_session_cookie_jar.dart';
 
 /// 冷启动校验 sid 时的结论（避免把「网络抖动」当成「已登出」并清空本地会话）。
 enum FrappeSessionVerifyResult {
@@ -436,9 +437,7 @@ abstract final class FrappeNativeSession {
       final text = await res.transform(utf8.decoder).join();
       final extra = _collectCookies(res, siteOrigin.host);
       final byName = <String, Cookie>{for (final c in cookies) c.name: c};
-      for (final c in extra) {
-        byName[c.name] = c;
-      }
+      FrappeSessionCookieJar.mergeResponseCookiesIntoJar(byName, extra);
       if (csrfTokenFromCookies(byName.values.toList()) == null &&
           text.isNotEmpty) {
         final extracted = _tryParseCsrfFromDeskHtml(text);
@@ -641,9 +640,7 @@ abstract final class FrappeNativeSession {
       final extra = _collectCookies(res, siteOrigin.host);
       if (extra.isNotEmpty) {
         final byName = <String, Cookie>{for (final c in cookies) c.name: c};
-        for (final c in extra) {
-          byName[c.name] = c;
-        }
+        FrappeSessionCookieJar.mergeResponseCookiesIntoJar(byName, extra);
         mergedFromResponse = byName.values.toList();
       }
       if (mergedFromResponse == null) {

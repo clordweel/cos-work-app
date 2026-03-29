@@ -3,8 +3,10 @@ import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'cos_secure_storage_factory.dart';
 import 'cos_session_storage_keys.dart';
 import 'cos_web_cookie_sync.dart';
+import 'frappe_session_cookie_jar.dart';
 
 /// 将 Frappe Cookie 快照写入本地并与 WebView（Android）对齐。
 ///
@@ -13,8 +15,14 @@ Future<void> persistFrappeCookieSnapshotAndSyncWebView({
   required Uri siteOrigin,
   required List<Cookie> cookies,
 }) async {
+  final sid = await cosFlutterSecureStorage.read(key: CosSessionKeys.frappeSid);
+  final prepared = FrappeSessionCookieJar.prepareCookiesForPersistence(
+    cookies,
+    siteOrigin.host,
+    sid,
+  );
   final prefs = await SharedPreferences.getInstance();
-  final list = cookies
+  final list = prepared
       .map(
         (c) => <String, dynamic>{
           'name': c.name,
@@ -28,5 +36,5 @@ Future<void> persistFrappeCookieSnapshotAndSyncWebView({
       )
       .toList();
   await prefs.setString(CosSessionKeys.frappeWebCookiesJson, jsonEncode(list));
-  await CosWebCookieSync.applyCookies(siteOrigin, cookies);
+  await CosWebCookieSync.applyCookies(siteOrigin, prepared);
 }

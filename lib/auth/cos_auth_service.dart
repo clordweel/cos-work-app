@@ -14,6 +14,7 @@ import 'cos_biometric_gate.dart';
 import 'cos_secure_storage_factory.dart';
 import 'cos_session_storage_keys.dart';
 import 'frappe_native_session.dart';
+import 'frappe_session_cookie_jar.dart';
 import 'cos_company_context.dart';
 import '../mini_program/cos_mini_program_catalog.dart';
 
@@ -103,7 +104,6 @@ class CosAuthService extends ChangeNotifier {
         !_biometricGateEnabled || !await CosBiometricGate.hasEnrolledBiometrics();
     _bootstrapDone = true;
     notifyListeners();
-    await ensureWorkerPortalTokenFresh();
     await CosCompanyContext.instance.refreshFromServer();
     unawaited(CosMiniProgramCatalog.instance.refreshFromServer());
   }
@@ -130,16 +130,6 @@ class CosAuthService extends ChangeNotifier {
     );
     await _persistFrappeWebCookies(sessionCookies);
     await CosWebCookieSync.applyCookies(origin, sessionCookies);
-    final wptOut = await FrappeNativeSession.loginForWorkerPortalToken(
-      siteOrigin: origin,
-      usr: usr.trim(),
-      pwd: pwd,
-    );
-    if (wptOut.ok && wptOut.token != null) {
-      await _secure.write(key: _kSecureWorkerPortalToken, value: wptOut.token!);
-    } else {
-      debugPrint('Worker Portal token 未获取：${wptOut.errorMessage ?? "unknown"}');
-    }
     CosMiniProgramCatalog.instance.clear();
     final uid = await FrappeNativeSession.getLoggedUser(
       siteOrigin: origin,
@@ -451,8 +441,15 @@ class CosAuthService extends ChangeNotifier {
   }
 
   Future<void> _persistFrappeWebCookies(List<Cookie> cookies) async {
+    final sid = await _secure.read(key: CosSessionKeys.frappeSid);
+    final host = CosSiteStore.instance.origin.host;
+    final prepared = FrappeSessionCookieJar.prepareCookiesForPersistence(
+      cookies,
+      host,
+      sid,
+    );
     final prefs = await SharedPreferences.getInstance();
-    final list = cookies
+    final list = prepared
         .map(
           (c) => <String, dynamic>{
             'name': c.name,

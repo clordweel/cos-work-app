@@ -5,11 +5,8 @@ import 'mini_program_material_icons.dart';
 
 /// 小程序 WebView 认证策略（见 `docs/cos-mini-program-token-auth-plan.md`）。
 enum CosMiniProgramAuthKind {
-  /// Frappe Cookie（Desk、`/app/*`），允许站内登录页重登。
+  /// Frappe Cookie（`sid` 等），与 Desk 一致；所有小程序 WebView 均走此方式。
   frappeSession,
-
-  /// Worker Portal：以 `wpt.` Bearer + `localStorage` 为主，壳在首跳前注入 token。
-  workerPortalToken,
 }
 
 /// 一个业务「小程序」：路径相对于站点根，由 [launchUriFor] 与当前 [CosSiteStore] 组合。
@@ -57,7 +54,7 @@ class CosMiniProgram {
 
   final Color? accentColor;
 
-  /// 默认 [CosMiniProgramAuthKind.frappeSession]；`/worker-portal/*` 应使用 [CosMiniProgramAuthKind.workerPortalToken]。
+  /// 与 Desk 相同：依赖 Frappe 会话 Cookie；Desk 中历史 `worker_portal_token` 亦按此项解析。
   final CosMiniProgramAuthKind authKind;
 
   /// 壳内 H5 顶栏占位策略（与 DocType `nav_bar_inset_mode` 一致）。
@@ -84,11 +81,7 @@ class CosMiniProgram {
     return siteOrigin.replace(path: p, queryParameters: {});
   }
 
-  static CosMiniProgramAuthKind _parseAuthKind(String? raw) {
-    final s = (raw ?? '').trim().toLowerCase();
-    if (s == 'worker_portal_token') {
-      return CosMiniProgramAuthKind.workerPortalToken;
-    }
+  static CosMiniProgramAuthKind _parseAuthKind(String? _) {
     return CosMiniProgramAuthKind.frappeSession;
   }
 
@@ -108,7 +101,12 @@ class CosMiniProgram {
   static bool _parseShowNavBarTitle(Map<String, dynamic> m) {
     if (!m.containsKey('show_nav_bar_title')) return true;
     final v = m['show_nav_bar_title'];
-    if (v == false || v == 0 || v == '0') return false;
+    if (v == false) return false;
+    if (v == 0 || v == 0.0) return false;
+    if (v is String) {
+      final s = v.trim().toLowerCase();
+      if (s == '0' || s == 'false' || s == 'no') return false;
+    }
     return true;
   }
 

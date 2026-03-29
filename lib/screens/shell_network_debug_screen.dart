@@ -49,7 +49,7 @@ class _ShellNetworkDebugScreenState extends State<ShellNetworkDebugScreen> {
     buf.writeln('sid: ${_mask(sid)}');
 
     final wpt = await CosAuthService.instance.readWorkerPortalToken();
-    buf.writeln('Worker Portal token: ${_maskWpt(wpt)}');
+    buf.writeln('（可选）历史 wpt. token: ${_maskWpt(wpt)}');
 
     final prefs = await SharedPreferences.getInstance();
     final rawCookies = prefs.getString(CosSessionKeys.frappeWebCookiesJson);

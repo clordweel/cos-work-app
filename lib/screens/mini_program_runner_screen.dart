@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -9,7 +7,6 @@ import '../auth/cos_web_auth_scope.dart';
 import '../config/cos_site_store.dart';
 import '../mini_program/cos_mini_program.dart';
 import '../mini_program/cos_mini_program_nav_bar_inset_mode.dart';
-import '../mini_program/worker_portal_token_bootstrap.dart';
 import '../ui/cos_shell_tokens.dart';
 import '../wechat_ui/wechat_mini_program_nav_bar.dart';
 
@@ -31,12 +28,6 @@ class MiniProgramRunnerScreen extends StatefulWidget {
 
 class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   late final WebViewController _controller;
-
-  /// Worker Portal：首屏用 JS 写入 `localStorage` 后最多 `reload` 一次（部分 WebView 对 hash 灌 token 不可靠）。
-  bool _workerPortalDomReloadDone = false;
-
-  /// 本次进入已用 URL `#cosWorkerPortalToken=` 首跳（与 `main.tsx` 同步写入），无需再 inject+reload。
-  bool _workerPortalUsedHashBootstrap = false;
 
   double _loadProgress = 0;
   bool _canGoBack = false;
@@ -102,7 +93,6 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
           onPageFinished: (String url) async {
             debugPrint('[${_p.id}] Loaded: $url');
             await _injectShellLayoutCssVars();
-            await _onWorkerPortalDomInjectIfNeeded(url);
             if (!mounted) return;
             await _syncHistoryState();
           },
@@ -149,48 +139,11 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   }
 
   Future<void> _primeCookiesAndLoad() async {
-    _workerPortalDomReloadDone = false;
-    _workerPortalUsedHashBootstrap = false;
     final origin = CosSiteStore.instance.origin;
     final launch = _p.launchUriFor(origin);
     await CosAuthService.instance.ensureWebViewCookiesBeforeBrowse(primePageUrl: launch);
     if (!mounted) return;
-
-    if (_p.authKind == CosMiniProgramAuthKind.workerPortalToken) {
-      await CosAuthService.instance.ensureWorkerPortalTokenFresh();
-      if (!mounted) return;
-      final token = await CosAuthService.instance.readWorkerPortalToken();
-      if (token != null && token.isNotEmpty) {
-        await _controller.loadRequest(
-          WorkerPortalTokenBootstrap.uriWithEmbeddedToken(launch, token),
-        );
-        _workerPortalUsedHashBootstrap = true;
-        return;
-      }
-      await _controller.loadRequest(launch);
-      return;
-    }
     await _controller.loadRequest(launch);
-  }
-
-  Future<void> _onWorkerPortalDomInjectIfNeeded(String url) async {
-    if (_p.authKind != CosMiniProgramAuthKind.workerPortalToken) return;
-    if (_workerPortalUsedHashBootstrap) return;
-    if (!url.contains('worker-portal')) return;
-    if (!CosAuthService.instance.isLoggedIn) return;
-    final token = await CosAuthService.instance.readWorkerPortalToken();
-    if (token == null || token.isEmpty) return;
-    try {
-      await _controller.runJavaScript(
-        '(function(){try{localStorage.setItem("cos_worker_portal_token",${jsonEncode(token)});}catch(e){}})();',
-      );
-    } catch (e, st) {
-      debugPrint('WorkerPortal localStorage 注入失败: $e\n$st');
-    }
-    if (!_workerPortalDomReloadDone && mounted) {
-      _workerPortalDomReloadDone = true;
-      await _controller.reload();
-    }
   }
 
   Future<void> _syncHistoryState() async {

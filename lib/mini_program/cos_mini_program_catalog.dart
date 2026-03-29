@@ -59,27 +59,98 @@ class CosMiniProgramCatalog extends ChangeNotifier {
     return MiniProgramRegistry.tryFindById(id);
   }
 
-  /// 每次打开小程序前调用：独立 GET 单条 Desk 配置，不依赖宫格缓存、也不与进行中的宫格刷新合并。
+  static Future<void> _persistIfMerged(
+    Uri origin,
+    FrappeRpcResult res,
+  ) async {
+    final merged = res.mergedSessionCookies;
+    if (merged == null || merged.isEmpty) return;
+    await persistFrappeCookieSnapshotAndSyncWebView(
+      siteOrigin: origin,
+      cookies: merged,
+    );
+  }
+
+  static Map<String, dynamic>? _messageAsMap(dynamic message) {
+    if (message == null) return null;
+    if (message is Map<String, dynamic>) return message;
+    if (message is Map) return Map<String, dynamic>.from(message);
+    return null;
+  }
+
+  /// Desk 引导 + CSRF 合并后的 Cookie 仅存在于本次内存时，下次又从 prefs 读旧 `csrf_token`，
+  /// POST 会持续失败，表现为只能依赖「重新登录」写入整包快照。
   ///
-  /// 若站点无对应 Doc 或无权读取，返回 [program] / [findById] 回退。
+  /// 在发起白名单请求前把当前合并结果写回 prefs/WebView，与小程序自选 POST 成功后的处理一致。
+  Future<List<Cookie>> _cookiesForFrappeApi() async {
+    if (!CosSiteStore.instance.isInitialized) return [];
+    var c = await _sessionCookiesForPost();
+    if (c.isEmpty) {
+      c = await _sessionCookies();
+    }
+    if (c.isEmpty) return c;
+    final origin = CosSiteStore.instance.origin;
+    try {
+      await persistFrappeCookieSnapshotAndSyncWebView(
+        siteOrigin: origin,
+        cookies: c,
+      );
+    } catch (_) {}
+    return c;
+  }
+
+  /// 每次打开小程序前调用：POST 拉单条 Desk 配置（带 CSRF，避免部分站点 GET query 未传入白名单方法）。
+  ///
+  /// 若单条接口失败，先 [refreshFromServer] 再 [findById]，避免一直使用内存里过期的 `_remote` 宫格缓存
+  /// （此前失败回退到旧缓存，Desk 改配置永远看不到，只有重登清空缓存后才像「生效」）。
   Future<CosMiniProgram> resolveProgramForOpen(CosMiniProgram program) async {
     if (!CosSiteStore.instance.isInitialized) return program;
-    final cookies = await _sessionCookies();
+    final cookies = await _cookiesForFrappeApi();
     if (cookies.isEmpty) return program;
     final origin = CosSiteStore.instance.origin;
-    final res = await FrappeNativeSession.callMethodGet(
+    final res = await FrappeNativeSession.callMethodPostForm(
+      siteOrigin: origin,
+      cookies: cookies,
+      dottedMethod: CosFrappeApiMethods.getMiniProgramLaunchConfig,
+      fields: {'program_id': program.id},
+    );
+    await _persistIfMerged(origin, res);
+    final m = _messageAsMap(res.message);
+    if (res.ok && m != null && m.isNotEmpty) {
+      return CosMiniProgram.fromLauncherPayload(m, origin);
+    }
+    final resGet = await FrappeNativeSession.callMethodGet(
       siteOrigin: origin,
       cookies: cookies,
       dottedMethod: CosFrappeApiMethods.getMiniProgramLaunchConfig,
       queryParameters: {'program_id': program.id},
     );
-    if (res.ok && res.message is Map) {
-      final m = Map<String, dynamic>.from(res.message as Map);
-      if (m.isNotEmpty) {
-        return CosMiniProgram.fromLauncherPayload(m, origin);
+    await _persistIfMerged(origin, resGet);
+    final m2 = _messageAsMap(resGet.message);
+    if (resGet.ok && m2 != null && m2.isNotEmpty) {
+      return CosMiniProgram.fromLauncherPayload(m2, origin);
+    }
+    await refreshFromServer(force: true);
+    return findById(program.id) ?? program;
+  }
+
+  /// 长按「更新配置」：拉单条并写回宫格缓存中对应项，并 [notifyListeners]。
+  Future<String?> refreshLauncherEntryFromSite(CosMiniProgram program) async {
+    if (!CosSiteStore.instance.isInitialized) {
+      return '站点未初始化';
+    }
+    final fresh = await resolveProgramForOpen(program);
+    final remote = _remote;
+    if (remote != null && remote.isNotEmpty) {
+      final i = remote.indexWhere((p) => p.id == fresh.id);
+      if (i >= 0) {
+        remote[i] = fresh;
+        notifyListeners();
+        return null;
       }
     }
-    return findById(program.id) ?? program;
+    await refreshFromServer(force: true);
+    return null;
   }
 
   Future<List<Cookie>> _sessionCookies() async {
@@ -169,7 +240,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final cookies = await _sessionCookies();
+      final cookies = await _cookiesForFrappeApi();
       if (cookies.isEmpty) {
         loading = false;
         notifyListeners();
@@ -239,7 +310,7 @@ class CosMiniProgramCatalog extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final cookies = await _sessionCookies();
+      final cookies = await _cookiesForFrappeApi();
       if (cookies.isEmpty) {
         marketLoading = false;
         notifyListeners();

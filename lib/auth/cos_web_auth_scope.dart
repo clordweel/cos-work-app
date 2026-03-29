@@ -10,12 +10,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// - 原生登录成功后由 [CosWebCookieSync] 把 Frappe 下发的 Cookie 写入 WebView（Android 经
 ///   [MethodChannel]，Cookie 属性串用 [Cookie.toString] 与服务端一致）；[CosAuthService] 会
 ///   持久化 Cookie 快照，并在打开小程序 WebView **首跳前**再次 [CosAuthService.ensureWebViewCookiesBeforeBrowse]。
-/// - Worker Portal（`worker_portal_token`）：**勿用** `loadHtmlString` 写 `localStorage`（与真实站点
-///   不同源）。壳在打开前调用 [CosAuthService.ensureWorkerPortalTokenFresh] 换发 `wpt.`，首跳 URL
-///   使用 [WorkerPortalTokenBootstrap.uriWithEmbeddedToken]（`#cosWorkerPortalToken=`），由站点
-///   `main.tsx` 在 React 挂载**前**写入 `localStorage`；无 token 时仍回退为 `onPageFinished` 注入
-///   + `reload`。WebView User-Agent 含 `CosWorkApp` 供前端识别壳环境。
-///   （`WorkerPortalTokenBootstrap` 见 `lib/mini_program/worker_portal_token_bootstrap.dart`。）
+/// - `/worker-portal/*` 与 `/desk` 相同：依赖 [CosAuthService.ensureWebViewCookiesBeforeBrowse] 预灌
+///   Frappe Cookie，不再使用 `wpt.` Bearer / `localStorage` 注入。User-Agent 仍含 `CosWorkApp` 供前端识别壳。
 ///
 /// **后续若出现以下情况，再升级此模块**
 /// - 小程序改为 **不同子域**（如 `a.junhai.work` 与 `b.junhai.work`）→ 需 Cookie 同步、

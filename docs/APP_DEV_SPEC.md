@@ -56,9 +56,9 @@ lib/
 
 ## 5. 认证与会话
 
-- **单一入口**：`CosAuthService`（登录、登出、bootstrap、Worker Portal token、与原生会话协作）。
+- **单一入口**：`CosAuthService`（登录、登出、bootstrap、与原生 Frappe Cookie 会话协作）。
 - **Frappe 方法名字符串**：只从 `CosFrappeApiMethods` 引用，后端改名须**同时**改 `vendor/cos` 与客户端常量，并更新注释中的文件指向。
-- **Worker Portal**：Bearer `wpt.` 由服务端 `login_for_token` / `issue_token_from_session` 发放；壳侧负责存储与刷新策略，详见 `README` 与 `worker_portal_token_bootstrap.dart`。
+- **小程序 WebView**：与 Desk 相同，依赖 **Frappe Cookie**（`ensureWebViewCookiesBeforeBrowse`）；服务端仍可提供 `issue_token_from_session` 等接口供调试或其它客户端，壳内主流程不再登录/换发 `wpt.`。
 - **生物识别**：仅作解锁门禁，不替代服务端鉴权；状态由 `CosAuthService.needsBiometricUnlock` 等与 `MaterialApp` 的 `key` 联动，避免栈上残留错误页面。
 
 ---
@@ -67,7 +67,7 @@ lib/
 
 ### 6.1 小程序模型
 
-- `CosMiniProgram`：`launchPath`、`authKind`（`frappeSession` / `workerPortalToken`）、服务端拉取的图标与启用状态等。
+- `CosMiniProgram`：`launchPath`、`authKind`（仅 `frappeSession`，Desk 中历史 `worker_portal_token` 亦按 Cookie 解析）、服务端拉取的图标与启用状态等。
 - **注册**：`mini_program_registry.dart` + 服务端 `get_launcher_programs` / `get_market_programs` 配置，避免硬编码生产路径。
 
 ### 6.2 User-Agent 约定
