@@ -96,7 +96,8 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     };
   }
 
-  /// 与 Worker Portal `tailwind` `.dark`、Desk `frappe.ui.theme` 对齐；SPA 路由无整页刷新时依赖 [onUrlChange] 再次注入。
+  /// Desk：与 Frappe `theme_switcher.js` 一致——`data-theme-mode` + [frappe.ui.set_theme]；
+  /// Worker Portal 等无 frappe 时回退 `html.dark`（Tailwind）。
   Future<void> _applyCosShellThemeScript() async {
     if (!mounted) return;
     final mode = _cosThemeQueryString();
@@ -105,6 +106,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   try {
     var mode = '$mode';
     var r = document.documentElement;
+    var deskMode = mode === 'system' ? 'automatic' : mode;
     r.setAttribute('data-cos-theme', mode);
     if (window.__cosShellThemeListener) {
       try {
@@ -112,30 +114,43 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
       } catch (e) {}
       window.__cosShellThemeListener = null;
     }
-    function computeDark() {
-      if (mode === 'dark') return true;
-      if (mode === 'light') return false;
-      try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; }
-    }
-    function applyDark() {
-      var d = computeDark();
+    function applyTailwindFallback() {
+      var d = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
       r.classList.toggle('dark', d);
       try { if (document.body) document.body.classList.toggle('dark', d); } catch (e) {}
-      try {
-        if (typeof frappe !== 'undefined' && frappe.ui && frappe.ui.theme) {
-          if (typeof frappe.ui.theme.set_dark_theme === 'function') {
-            frappe.ui.theme.set_dark_theme(d);
-          } else if (typeof frappe.ui.theme.set_theme === 'function') {
-            frappe.ui.theme.set_theme(d ? 'dark' : 'light');
-          }
-        }
-      } catch (e) {}
     }
-    applyDark();
-    if (mode === 'system') {
-      var listener = function() { applyDark(); };
+    function applyFrappeDeskTheme() {
+      if (typeof frappe === 'undefined' || !frappe.ui || typeof frappe.ui.set_theme !== 'function') {
+        return false;
+      }
+      r.setAttribute('data-theme-mode', deskMode);
+      frappe.ui.set_theme();
+      return true;
+    }
+    function setupSystemListener() {
+      if (mode !== 'system') return;
+      var listener = function() {
+        if (typeof frappe !== 'undefined' && frappe.ui && typeof frappe.ui.set_theme === 'function') {
+          frappe.ui.set_theme();
+        } else {
+          applyTailwindFallback();
+        }
+      };
       window.__cosShellThemeListener = listener;
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', listener);
+    }
+    function run() {
+      if (applyFrappeDeskTheme()) {
+        setupSystemListener();
+        return;
+      }
+      applyTailwindFallback();
+      setupSystemListener();
+    }
+    if (typeof frappe !== 'undefined' && frappe.ready) {
+      frappe.ready(run);
+    } else {
+      run();
     }
   } catch (e) {}
 })();''';
@@ -143,6 +158,28 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
       await _controller.runJavaScript(js);
     } catch (e, st) {
       debugPrint('壳主题注入失败: $e\n$st');
+    }
+  }
+
+  /// 与 Desk「切换主题」一致，写入 User.desk_theme（Light / Dark / Automatic）；仅在 App 内改主题时调用。
+  Future<void> _persistFrappeDeskUserTheme() async {
+    if (!mounted) return;
+    final theme = switch (CosThemeModeStore.instance.themeMode) {
+      ThemeMode.light => 'Light',
+      ThemeMode.dark => 'Dark',
+      ThemeMode.system => 'Automatic',
+    };
+    final js = '''
+(function(){
+  try {
+    if (typeof frappe === 'undefined' || typeof frappe.xcall !== 'function') return;
+    frappe.xcall('frappe.core.doctype.user.user.switch_theme', { theme: '$theme' });
+  } catch (e) {}
+})();''';
+    try {
+      await _controller.runJavaScript(js);
+    } catch (e, st) {
+      debugPrint('同步 User.desk_theme 失败: $e\n$st');
     }
   }
 
@@ -155,6 +192,7 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     if (!mounted) return;
     Future<void>.microtask(() async {
       await _applyShellInsetAndTheme();
+      await _persistFrappeDeskUserTheme();
     });
   }
 
