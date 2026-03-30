@@ -82,9 +82,13 @@ class CosMiniProgram {
   /// 与 [CosThemeModeStore] 一致：`light` | `dark` | `system`，供 H5 首帧与壳内 JS 对齐。
   static const cosWorkThemeQueryKey = '__cos_theme';
 
+  /// 当前会话默认公司（Company.name），供 H5 筛选；与 [CosCompanyContext.activeName] 一致。
+  static const cosWorkCompanyQueryKey = '__cos_company';
+
   Uri launchUriFor(
     Uri siteOrigin, {
     String? cosTheme,
+    String? cosCompany,
   }) {
     final p = launchPath.startsWith('/') ? launchPath : '/$launchPath';
     final base = siteOrigin.replace(path: p);
@@ -93,6 +97,10 @@ class CosMiniProgram {
     final t = (cosTheme ?? '').trim().toLowerCase();
     if (t == 'light' || t == 'dark' || t == 'system') {
       q[cosWorkThemeQueryKey] = t;
+    }
+    final c = (cosCompany ?? '').trim();
+    if (c.isNotEmpty) {
+      q[cosWorkCompanyQueryKey] = c;
     }
     return base.replace(queryParameters: q);
   }

@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../auth/cos_auth_service.dart';
+import '../auth/cos_company_context.dart';
 import '../auth/cos_web_auth_scope.dart';
 import '../config/cos_site_store.dart';
 import '../config/cos_theme_mode_store.dart';
@@ -183,15 +186,36 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
     }
   }
 
-  Future<void> _applyShellInsetAndTheme() async {
+  /// 供 H5 读取 `data-cos-company` / `window.__COS_WORK_APP_COMPANY__` 做筛选；与首跳 `__cos_company` 一致。
+  Future<void> _applyCosShellCompanyScript() async {
+    if (!mounted) return;
+    final name = CosCompanyContext.instance.activeName;
+    final nameJson = jsonEncode(name ?? '');
+    final js = '''
+(function(){
+  try {
+    var name = $nameJson;
+    document.documentElement.setAttribute('data-cos-company', name);
+    window.__COS_WORK_APP_COMPANY__ = name;
+  } catch (e) {}
+})();''';
+    try {
+      await _controller.runJavaScript(js);
+    } catch (e, st) {
+      debugPrint('壳公司上下文注入失败: $e\n$st');
+    }
+  }
+
+  Future<void> _applyShellInsetThemeAndCompany() async {
     await _applyCosShellThemeScript();
+    await _applyCosShellCompanyScript();
     await _applyShellInsetFallbackIfServerSkipped();
   }
 
   void _onCosThemeStoreChanged() {
     if (!mounted) return;
     Future<void>.microtask(() async {
-      await _applyShellInsetAndTheme();
+      await _applyShellInsetThemeAndCompany();
       await _persistFrappeDeskUserTheme();
     });
   }
@@ -221,14 +245,14 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
           onUrlChange: (UrlChange change) {
             Future<void>.microtask(() async {
               await _syncHistoryState();
-              await _applyShellInsetAndTheme();
+              await _applyShellInsetThemeAndCompany();
             });
           },
           onPageFinished: (String url) async {
             debugPrint('[${_p.id}] Loaded: $url');
             if (!mounted) return;
             await _syncHistoryState();
-            await _applyShellInsetAndTheme();
+            await _applyShellInsetThemeAndCompany();
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint('[${_p.id}] WebView error: ${error.description}');
@@ -259,9 +283,11 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
 
   Future<void> _primeCookiesAndLoad() async {
     final origin = CosSiteStore.instance.origin;
+    final company = CosCompanyContext.instance.activeName;
     final launch = _p.launchUriFor(
       origin,
       cosTheme: _cosThemeQueryString(),
+      cosCompany: (company != null && company.isNotEmpty) ? company : null,
     );
     await CosAuthService.instance.ensureWebViewCookiesBeforeBrowse(primePageUrl: launch);
     if (!mounted) return;
@@ -385,14 +411,16 @@ class _MiniProgramRunnerScreenState extends State<MiniProgramRunnerScreen> {
   Widget build(BuildContext context) {
     final shell = context.cosShell;
     const double webTop = 0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarBrightness: Brightness.dark,
-        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarIconBrightness:
+            isDark ? Brightness.light : Brightness.dark,
       ),
       child: PopScope(
         canPop: false,

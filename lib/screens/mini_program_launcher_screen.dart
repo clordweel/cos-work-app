@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../auth/cos_company_context.dart';
-import '../config/app_brand.dart';
 import '../config/cos_site_store.dart';
 import '../mini_program/cos_mini_program.dart';
 import '../mini_program/cos_mini_program_catalog.dart';
@@ -350,31 +349,94 @@ class _WeChatStyleLauncherHeader extends StatelessWidget {
                     listenable: CosCompanyContext.instance,
                     builder: (context, _) {
                       final cc = CosCompanyContext.instance;
-                      final sub = cc.activeDisplayLabel;
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            kAppDisplayName,
+                      if (cc.loading && cc.companies.isEmpty) {
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '加载公司…',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: shell.secondaryText,
+                            ),
+                          ),
+                        );
+                      }
+                      if (cc.companies.isEmpty) {
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            cc.errorMessage ?? '暂无可用公司',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: shell.secondaryText,
+                            ),
+                          ),
+                        );
+                      }
+                      if (cc.companies.length == 1) {
+                        final only = cc.companies.first;
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            only.displayLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: shell.titleText,
                             ),
                           ),
-                          if (sub != null)
-                            Text(
-                              sub,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: shell.secondaryText
-                                    .withValues(alpha: 0.95),
-                              ),
-                            ),
-                        ],
+                        );
+                      }
+                      var value = cc.activeName;
+                      if (value != null &&
+                          !cc.companies.any((e) => e.name == value)) {
+                        value = null;
+                      }
+                      value ??= cc.companies.first.name;
+                      return DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: value,
+                          icon: Icon(
+                            Icons.arrow_drop_down_rounded,
+                            color: shell.capsuleIcon,
+                          ),
+                          dropdownColor: shell.navBarBackground,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: shell.titleText,
+                          ),
+                          items: cc.companies
+                              .map(
+                                (e) => DropdownMenuItem<String>(
+                                  value: e.name,
+                                  child: Text(
+                                    e.displayLabel,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: cc.loading
+                              ? null
+                              : (v) async {
+                                  if (v == null) return;
+                                  final err =
+                                      await cc.setActiveCompany(v);
+                                  if (!context.mounted) return;
+                                  if (err != null) {
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
+                                      SnackBar(content: Text(err)),
+                                    );
+                                  }
+                                },
+                        ),
                       );
                     },
                   ),
